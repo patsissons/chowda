@@ -19,3 +19,9 @@ pnpm install
 pnpm --silent cli --help
 pnpm --silent cli feed hottest --json | jq '.[0]'
 ```
+
+## CLI configuration
+
+- `packages/cli/.env` contains source-controlled non-secret defaults.
+- `pnpm --silent cli setup` writes local overrides to `packages/cli/.env.local`.
+- Runtime config is loaded with `dotenv-flow`, so `.env.local` overrides `.env`.
