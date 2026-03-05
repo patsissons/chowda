@@ -6,12 +6,12 @@ async function main(): Promise<void> {
   const program = createProgram();
   const args = process.argv.slice(2);
 
-  if (args.length === 0 && process.stdout.isTTY && process.stdin.isTTY) {
-    await runDiscovery(program);
-    return;
-  }
-
   try {
+    if (args.length === 0 && process.stdout.isTTY && process.stdin.isTTY) {
+      await runDiscovery(program);
+      return;
+    }
+
     await program.parseAsync(process.argv);
   } catch (error) {
     handleCliError(error);

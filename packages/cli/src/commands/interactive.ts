@@ -6,7 +6,7 @@ import { runOnboarding } from "../interactive/onboarding.js";
 export function registerInteractiveCommands(program: Command): void {
   program
     .command("discover")
-    .description("Interactive command discovery (Clack)")
+    .description("Interactive resource explorer (Clack)")
     .action(async () => {
       await runDiscovery(program);
     });
