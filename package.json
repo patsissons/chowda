@@ -8,6 +8,7 @@
     "prettier:format": "prettier --write .",
     "build": "pnpm -r --if-present build",
     "dev": "pnpm -r --parallel --if-present dev",
+    "web": "pnpm --filter @chowda/web dev",
     "cli": "./packages/cli/scripts/cli",
     "lobsters": "pnpm --silent cli",
     "test": "pnpm -r --if-present test"

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { AppLaunchDrawer } from '@/components/app-launch-drawer'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 const DEFAULT_TAB = 'hottest'
@@ -100,16 +101,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </h1>
 
         <p className="max-w-3xl break-words text-base text-muted sm:text-lg">
-        Chowda brings a cleaner, mobile-friendly Lobsters experience with focused reading, quick navigation, and room for community-powered utilities.
+          Chowda brings a cleaner, mobile-friendly Lobsters experience with focused reading, quick
+          navigation, and room for community-powered utilities.
         </p>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <a
-            href="#"
-            className="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-          >
-            Open the app
-          </a>
+          <AppLaunchDrawer />
           <a
             href="https://lobste.rs"
             className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-accentSoft"
