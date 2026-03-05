@@ -4,10 +4,15 @@
   "version": "0.1.0",
   "packageManager": "pnpm@10.17.1",
   "scripts": {
+    "prettier:check": "prettier --check .",
+    "prettier:format": "prettier --write .",
     "build": "pnpm -r --if-present build",
     "dev": "pnpm -r --parallel --if-present dev",
     "cli": "./packages/cli/scripts/cli",
     "lobsters": "pnpm --silent cli",
     "test": "pnpm -r --if-present test"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
   }
 }
