@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { Github } from 'lucide-react'
 
 import { AppLaunchDrawer } from '@/components/app-launch-drawer'
+import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 const DEFAULT_TAB = 'hottest'
@@ -85,7 +87,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             Calm reads and smarter discovery for Lobsters readers
           </p>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9 w-9 rounded-full p-0">
+            <a
+              href="https://github.com/patsissons/chowda"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open Chowda on GitHub"
+            >
+              <Github className="h-4 w-4" aria-hidden />
+            </a>
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
       <section className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-card sm:p-8">
