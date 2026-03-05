@@ -81,7 +81,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="min-w-0">
           <p className="brand truncate text-2xl font-semibold sm:text-3xl">Chowda</p>
           <p className="text-sm text-muted">
-            Lobsters companion, inspired by an iconic Simpsons quote.
+            Calm reads and smarter discovery for Lobsters readers
           </p>
         </div>
         <ThemeToggle />
@@ -92,7 +92,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
 
         <p className="mb-4 inline-flex max-w-full truncate rounded-full border border-border bg-accentSoft px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted">
-          Freddy Quimby said it best: “Chowda”
+          It's pronounced “<span className="font-bold mx-1 italic">Chow-DAH!</span>”
         </p>
 
         <h1 className="mb-4 max-w-3xl text-balance text-3xl font-semibold leading-tight sm:text-5xl">
@@ -100,8 +100,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </h1>
 
         <p className="max-w-3xl break-words text-base text-muted sm:text-lg">
-          Chowda is an informational site today, with room to grow into utilities that help you
-          search, organize, and explore Lobsters with less friction.
+        Chowda brings a cleaner, mobile-friendly Lobsters experience with focused reading, quick navigation, and room for community-powered utilities.
         </p>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
