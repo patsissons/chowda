@@ -107,7 +107,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
 
         <p className="mb-4 inline-flex max-w-full truncate rounded-full border border-border bg-accentSoft px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted">
-          It's pronounced “<span className="font-bold mx-1 italic">Chow-DAH!</span>”
+          It's pronounced <span className="font-bold mx-1 italic">“Chow-DAH!”</span>
         </p>
 
         <h1 className="mb-4 max-w-3xl text-balance text-3xl font-semibold leading-tight sm:text-5xl">
@@ -123,6 +123,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <AppLaunchDrawer />
           <a
             href="https://lobste.rs"
+            target="_blank"
+            rel="noreferrer"
             className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-accentSoft"
           >
             Visit Lobsters
