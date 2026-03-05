@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Github } from 'lucide-react'
 
 import { AppLaunchDrawer } from '@/components/app-launch-drawer'
+import { PaginationControls } from '@/components/pagination-controls'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 const DEFAULT_TAB = 'hottest'
-const PAGE_SIZE = 25
+const APP_PAGE_SIZE = 10
+const SOURCE_PAGE_SIZE = 25
 
 type TabValue = 'hottest'
 
@@ -27,6 +29,11 @@ type LobstersStory = {
   submitter_user: string
 }
 
+type PagedStories = {
+  stories: LobstersStory[]
+  hasNextPage: boolean
+}
+
 function normalizeTab(tab?: string): TabValue {
   return tab === DEFAULT_TAB ? DEFAULT_TAB : DEFAULT_TAB
 }
@@ -34,11 +41,6 @@ function normalizeTab(tab?: string): TabValue {
 function normalizePage(page?: string): number {
   const parsed = Number.parseInt(page ?? '', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-}
-
-function queryFor(tab: TabValue, page: number): string {
-  const params = new URLSearchParams({ tab, page: String(page) })
-  return `?${params.toString()}`
 }
 
 function domainFromUrl(url: string): string | null {
@@ -61,22 +63,43 @@ async function fetchHottestStories(page: number): Promise<LobstersStory[]> {
   return (await response.json()) as LobstersStory[]
 }
 
+async function fetchStoriesForAppPage(page: number): Promise<PagedStories> {
+  const startIndex = (page - 1) * APP_PAGE_SIZE
+  const sourcePage = Math.floor(startIndex / SOURCE_PAGE_SIZE) + 1
+  const offsetWithinSource = startIndex % SOURCE_PAGE_SIZE
+
+  const firstSourcePage = await fetchHottestStories(sourcePage)
+  let combinedStories = firstSourcePage.slice(offsetWithinSource)
+
+  if (combinedStories.length < APP_PAGE_SIZE + 1) {
+    const secondSourcePage = await fetchHottestStories(sourcePage + 1)
+    combinedStories = [...combinedStories, ...secondSourcePage]
+  }
+
+  return {
+    stories: combinedStories.slice(0, APP_PAGE_SIZE),
+    hasNextPage: combinedStories.length > APP_PAGE_SIZE,
+  }
+}
+
 export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams
   const activeTab = normalizeTab(params.tab)
   const currentPage = normalizePage(params.page)
 
   let stories: LobstersStory[] = []
+  let hasNextPage = false
   let feedError: string | null = null
 
   try {
-    stories = await fetchHottestStories(currentPage)
+    const pagedStories = await fetchStoriesForAppPage(currentPage)
+    stories = pagedStories.stories
+    hasNextPage = pagedStories.hasNextPage
   } catch {
     feedError = 'Unable to load the hottest feed right now. Please try again shortly.'
   }
 
   const isFirstPage = currentPage === 1
-  const hasNextPage = stories.length === PAGE_SIZE
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-14 pt-5 sm:px-6 sm:pt-8">
@@ -136,7 +159,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="mb-4 border-b border-border">
           <div className="flex items-center gap-2" role="tablist" aria-label="Feed tabs">
             <Link
-              href={queryFor('hottest', 1)}
+              href="?tab=hottest&page=1"
               role="tab"
               aria-selected={activeTab === 'hottest'}
               className="-mb-px inline-flex rounded-t-md border border-border border-b-surface bg-surface px-3 py-2 text-sm font-medium text-text"
@@ -145,6 +168,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </Link>
           </div>
         </div>
+
+        <PaginationControls
+          tab={activeTab}
+          currentPage={currentPage}
+          isFirstPage={isFirstPage}
+          hasNextPage={hasNextPage}
+          className="mb-5 border-b border-border pb-4"
+        />
 
         {feedError ? (
           <p className="rounded-lg border border-border bg-accentSoft p-3 text-sm text-text">
@@ -187,38 +218,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </ol>
         )}
 
-        <nav
-          className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4"
-          aria-label="Pagination"
-        >
-          {isFirstPage ? (
-            <span className="rounded-md border border-border px-3 py-2 text-sm text-muted">
-              Previous
-            </span>
-          ) : (
-            <Link
-              href={queryFor(activeTab, currentPage - 1)}
-              className="rounded-md border border-border px-3 py-2 text-sm transition hover:bg-accentSoft"
-            >
-              Previous
-            </Link>
-          )}
-
-          <p className="text-sm text-muted">Page {currentPage}</p>
-
-          {hasNextPage ? (
-            <Link
-              href={queryFor(activeTab, currentPage + 1)}
-              className="rounded-md border border-border px-3 py-2 text-sm transition hover:bg-accentSoft"
-            >
-              Next
-            </Link>
-          ) : (
-            <span className="rounded-md border border-border px-3 py-2 text-sm text-muted">
-              Next
-            </span>
-          )}
-        </nav>
+        <PaginationControls
+          tab={activeTab}
+          currentPage={currentPage}
+          isFirstPage={isFirstPage}
+          hasNextPage={hasNextPage}
+          className="mt-5 border-t border-border pt-4"
+        />
       </section>
     </main>
   )
