@@ -5,9 +5,9 @@ Monorepo for Lobste.rs tooling and mobile-platform exploration.
 ## Workspace layout
 
 - `packages/web`: stub web app package
-- `packages/cli`: stub CLI package
+- `packages/cli`: long-term Chowda CLI package (Commander + Clack)
 - `packages/mobile`: stub mobile app package
-- `tools/lobsters-cli`: first CLI for querying Lobste.rs content
+- `tools/lobsters-cli`: original reference implementation used to shape `packages/cli`
 - `skills/lobsters-mobile-platform`: reusable Codex skill for Lobste.rs integration work
 
 ## Quick start
@@ -16,6 +16,6 @@ Run from repo root:
 
 ```bash
 pnpm install
-pnpm -r --if-present dev
-pnpm lobsters -- help
+pnpm --silent cli --help
+pnpm --silent cli feed hottest --json | jq '.[0]'
 ```

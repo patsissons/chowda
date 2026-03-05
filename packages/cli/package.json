@@ -4,11 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "chowda": "./src/index.mjs"
+    "chowda": "./scripts/cli"
   },
   "scripts": {
-    "dev": "node src/index.mjs",
+    "cli": "./scripts/cli",
+    "dev": "./scripts/cli",
     "build": "echo 'TODO: build @chowda/cli'",
     "test": "echo 'TODO: test @chowda/cli'"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.1",
+    "commander": "^14.0.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
   }
 }
