@@ -4,6 +4,9 @@ Monorepo for Lobste.rs tooling and mobile-platform exploration.
 
 ## Workspace layout
 
+- `packages/web`: stub web app package
+- `packages/cli`: stub CLI package
+- `packages/mobile`: stub mobile app package
 - `tools/lobsters-cli`: first CLI for querying Lobste.rs content
 - `skills/lobsters-mobile-platform`: reusable Codex skill for Lobste.rs integration work
 
@@ -12,7 +15,7 @@ Monorepo for Lobste.rs tooling and mobile-platform exploration.
 Run from repo root:
 
 ```bash
-node tools/lobsters-cli/src/index.mjs help
-node tools/lobsters-cli/src/index.mjs feed hottest --page 1
-node tools/lobsters-cli/src/index.mjs story jr3zym
+pnpm install
+pnpm -r --if-present dev
+pnpm lobsters -- help
 ```

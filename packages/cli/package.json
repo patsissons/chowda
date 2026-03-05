@@ -1,0 +1,14 @@
+{
+  "name": "@chowda/cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "chowda": "./src/index.mjs"
+  },
+  "scripts": {
+    "dev": "node src/index.mjs",
+    "build": "echo 'TODO: build @chowda/cli'",
+    "test": "echo 'TODO: test @chowda/cli'"
+  }
+}

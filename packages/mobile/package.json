@@ -1,0 +1,11 @@
+{
+  "name": "@chowda/mobile",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.mjs",
+    "build": "echo 'TODO: build @chowda/mobile'",
+    "test": "echo 'TODO: test @chowda/mobile'"
+  }
+}

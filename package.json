@@ -2,10 +2,11 @@
   "name": "chowda",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "tools/*"
-  ],
+  "packageManager": "pnpm@10.17.1",
   "scripts": {
-    "lobsters": "node tools/lobsters-cli/src/index.mjs"
+    "build": "pnpm -r --if-present build",
+    "dev": "pnpm -r --parallel --if-present dev",
+    "lobsters": "pnpm --filter @chowda/lobsters-cli start",
+    "test": "pnpm -r --if-present test"
   }
 }
