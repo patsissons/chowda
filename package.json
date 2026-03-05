@@ -1,0 +1,11 @@
+{
+  "name": "chowda",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "tools/*"
+  ],
+  "scripts": {
+    "lobsters": "node tools/lobsters-cli/src/index.mjs"
+  }
+}

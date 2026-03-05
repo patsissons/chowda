@@ -1,0 +1,12 @@
+{
+  "name": "@chowda/lobsters-cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "lobsters": "./src/index.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs"
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lobsters Mobile Platform"
+  short_description: "Build robust Lobsters integrations for CLI/mobile"
+  default_prompt: "Use $lobsters-mobile-platform to validate Lobsters endpoints and implement resilient read-first client features."
