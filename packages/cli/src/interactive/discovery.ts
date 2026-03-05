@@ -1,34 +1,27 @@
-import { confirm, intro, isCancel, note, outro, select, text } from "@clack/prompts";
+import { intro, isCancel, note, outro, select, text } from "@clack/prompts";
 import { Command } from "commander";
 
 import { resolveRuntimeConfig } from "../config.js";
-import { normalizeBaseUrl } from "../lobsters/api.js";
 import {
   FEED_TYPES,
   fetchDomainStories,
   fetchFeedStories,
-  fetchStory,
   fetchTagStories,
   fetchTags,
-  fetchUser,
   searchStories
 } from "../lobsters/resources.js";
-import { printPosts, printStoryDetails, printTags, printUser } from "../presentation/renderers.js";
-import { CommonOptions, ListOptions, StoryOptions } from "../types.js";
+import { printPosts, printTags } from "../presentation/renderers.js";
+import { CommonOptions, ListOptions } from "../types.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIST_LIMIT = 20;
-const DEFAULT_STORY_LIMIT = 10;
 const SUGGESTION_LIMIT = 12;
 
-type ResourceAction = "feed" | "tag" | "domain" | "story" | "user" | "tags" | "search" | "help" | "exit";
+type TopLevelAction = "search" | "feeds" | "stories" | "tags" | "domains" | "help" | "exit";
+type StoriesAction = "by_tag" | "by_domain" | "back";
 
 function withListOptions(common: CommonOptions, page: number, limit: number): ListOptions {
   return { ...common, page, limit };
-}
-
-function withStoryOptions(common: CommonOptions, limit: number): StoryOptions {
-  return { ...common, limit };
 }
 
 async function promptRequiredText(message: string, initialValue = ""): Promise<string | null> {
@@ -70,40 +63,11 @@ async function promptInteger(message: string, initialValue: number, min: number)
   return Number(value);
 }
 
-async function promptRuntimeOptions(): Promise<CommonOptions | null> {
+function getDefaultRuntimeOptions(): CommonOptions {
   const runtimeConfig = resolveRuntimeConfig();
-
-  const useDefaults = await confirm({
-    message: "Use configured base URL and timeout?",
-    initialValue: true
-  });
-
-  if (isCancel(useDefaults)) {
-    return null;
-  }
-
-  if (useDefaults) {
-    return {
-      baseUrl: runtimeConfig.baseUrl,
-      timeoutMs: runtimeConfig.timeoutMs,
-      raw: false,
-      json: false
-    };
-  }
-
-  const baseUrl = await promptRequiredText("Lobsters base URL", runtimeConfig.baseUrl);
-  if (baseUrl === null) {
-    return null;
-  }
-
-  const timeoutMs = await promptInteger("Timeout (ms)", runtimeConfig.timeoutMs, 1);
-  if (timeoutMs === null) {
-    return null;
-  }
-
   return {
-    baseUrl: normalizeBaseUrl(baseUrl),
-    timeoutMs,
+    baseUrl: runtimeConfig.baseUrl,
+    timeoutMs: runtimeConfig.timeoutMs,
     raw: false,
     json: false
   };
@@ -204,69 +168,7 @@ async function promptDomain(common: CommonOptions): Promise<string | null> {
   return promptRequiredText("Domain name (example: github.com)", "github.com");
 }
 
-async function promptUsername(common: CommonOptions): Promise<string | null> {
-  let suggestions: string[] = [];
-  try {
-    const stories = await suggestFromHottest(common);
-    suggestions = sortedUnique(stories.map((story) => story.submitter_user)).slice(0, SUGGESTION_LIMIT);
-  } catch {
-    suggestions = [];
-  }
-
-  if (suggestions.length > 0) {
-    const choice = await select({
-      message: "Choose a username",
-      options: [
-        ...suggestions.map((username) => ({ label: username, value: username })),
-        { label: "Manual entry", value: "__manual__" }
-      ]
-    });
-
-    if (isCancel(choice)) {
-      return null;
-    }
-
-    if (choice !== "__manual__") {
-      return choice;
-    }
-  }
-
-  return promptRequiredText("Lobsters username", "jcs");
-}
-
-async function promptStoryId(common: CommonOptions): Promise<string | null> {
-  let stories = [] as Awaited<ReturnType<typeof suggestFromHottest>>;
-  try {
-    stories = await suggestFromHottest(common);
-  } catch {
-    stories = [];
-  }
-
-  if (stories.length > 0) {
-    const choice = await select({
-      message: "Choose a story",
-      options: [
-        ...stories.slice(0, SUGGESTION_LIMIT).map((story) => ({
-          label: `${story.short_id} | ${story.title}`,
-          value: story.short_id
-        })),
-        { label: "Manual entry", value: "__manual__" }
-      ]
-    });
-
-    if (isCancel(choice)) {
-      return null;
-    }
-
-    if (choice !== "__manual__") {
-      return choice;
-    }
-  }
-
-  return promptRequiredText("Story short id", "jr3zym");
-}
-
-async function runFeedFlow(common: CommonOptions): Promise<void> {
+async function runFeedsFlow(common: CommonOptions): Promise<void> {
   const type = await promptFeedType();
   if (type === null) {
     return;
@@ -292,7 +194,7 @@ async function runFeedFlow(common: CommonOptions): Promise<void> {
   note(`pnpm --silent cli feed ${type} --page ${page} --limit ${limit}`, "Equivalent command");
 }
 
-async function runTagFlow(common: CommonOptions): Promise<void> {
+async function runTagStoriesFlow(common: CommonOptions): Promise<void> {
   const tag = await promptTag(common);
   if (tag === null) {
     return;
@@ -318,7 +220,7 @@ async function runTagFlow(common: CommonOptions): Promise<void> {
   note(`pnpm --silent cli tag ${tag} --page ${page} --limit ${limit}`, "Equivalent command");
 }
 
-async function runDomainFlow(common: CommonOptions): Promise<void> {
+async function runDomainStoriesFlow(common: CommonOptions): Promise<void> {
   const domain = await promptDomain(common);
   if (domain === null) {
     return;
@@ -344,40 +246,31 @@ async function runDomainFlow(common: CommonOptions): Promise<void> {
   note(`pnpm --silent cli domain ${domain} --page ${page} --limit ${limit}`, "Equivalent command");
 }
 
-async function runStoryFlow(common: CommonOptions): Promise<void> {
-  const shortId = await promptStoryId(common);
-  if (shortId === null) {
-    return;
+async function runStoriesMenu(common: CommonOptions): Promise<void> {
+  while (true) {
+    const action = await select({
+      message: "Stories",
+      options: [
+        { label: "By tag", value: "by_tag" },
+        { label: "By domain", value: "by_domain" },
+        { label: "Back", value: "back" }
+      ]
+    });
+
+    if (isCancel(action) || action === "back") {
+      return;
+    }
+
+    if ((action as StoriesAction) === "by_tag") {
+      await runTagStoriesFlow(common);
+      continue;
+    }
+
+    if ((action as StoriesAction) === "by_domain") {
+      await runDomainStoriesFlow(common);
+      continue;
+    }
   }
-
-  const limit = await promptInteger("Comment limit (0 uses default)", DEFAULT_STORY_LIMIT, 0);
-  if (limit === null) {
-    return;
-  }
-
-  const story = await fetchStory(shortId, common);
-  if (story === null) {
-    return;
-  }
-
-  const options = withStoryOptions(common, limit);
-  printStoryDetails(story, options);
-  note(`pnpm --silent cli story ${shortId} --limit ${limit}`, "Equivalent command");
-}
-
-async function runUserFlow(common: CommonOptions): Promise<void> {
-  const username = await promptUsername(common);
-  if (username === null) {
-    return;
-  }
-
-  const user = await fetchUser(username, common);
-  if (user === null) {
-    return;
-  }
-
-  printUser(user, common);
-  note(`pnpm --silent cli user ${username}`, "Equivalent command");
 }
 
 async function runTagsFlow(common: CommonOptions): Promise<void> {
@@ -422,29 +315,19 @@ async function runSearchFlow(common: CommonOptions): Promise<void> {
   note(`pnpm --silent cli search ${query} --page ${page} --limit ${limit}`, "Equivalent command");
 }
 
-async function runResourceAction(action: ResourceAction, common: CommonOptions, program: Command): Promise<void> {
-  if (action === "feed") {
-    await runFeedFlow(common);
+async function runTopLevelAction(action: TopLevelAction, common: CommonOptions, program: Command): Promise<void> {
+  if (action === "search") {
+    await runSearchFlow(common);
     return;
   }
 
-  if (action === "tag") {
-    await runTagFlow(common);
+  if (action === "feeds") {
+    await runFeedsFlow(common);
     return;
   }
 
-  if (action === "domain") {
-    await runDomainFlow(common);
-    return;
-  }
-
-  if (action === "story") {
-    await runStoryFlow(common);
-    return;
-  }
-
-  if (action === "user") {
-    await runUserFlow(common);
+  if (action === "stories") {
+    await runStoriesMenu(common);
     return;
   }
 
@@ -453,46 +336,40 @@ async function runResourceAction(action: ResourceAction, common: CommonOptions, 
     return;
   }
 
-  if (action === "search") {
-    await runSearchFlow(common);
+  if (action === "domains") {
+    await runDomainStoriesFlow(common);
     return;
   }
 
   if (action === "help") {
     program.outputHelp();
-    return;
   }
 }
 
 export async function runDiscovery(program: Command): Promise<void> {
   intro("chowda CLI interactive explorer");
 
-  const common = await promptRuntimeOptions();
-  if (common === null) {
-    outro("Cancelled.");
-    return;
+  const common = getDefaultRuntimeOptions();
+
+  while (true) {
+    const action = await select({
+      message: "Choose a resource",
+      options: [
+        { label: "Search", value: "search" },
+        { label: "Feeds", value: "feeds" },
+        { label: "Stories", value: "stories" },
+        { label: "Tags", value: "tags" },
+        { label: "Domains", value: "domains" },
+        { label: "Help", value: "help" },
+        { label: "Exit", value: "exit" }
+      ]
+    });
+
+    if (isCancel(action) || action === "exit") {
+      outro("Interactive flow complete.");
+      return;
+    }
+
+    await runTopLevelAction(action as TopLevelAction, common, program);
   }
-
-  const action = await select({
-    message: "Choose a resource",
-    options: [
-      { label: "Feed", value: "feed" },
-      { label: "Tag stories", value: "tag" },
-      { label: "Domain stories", value: "domain" },
-      { label: "Story details", value: "story" },
-      { label: "User profile", value: "user" },
-      { label: "Tags catalog", value: "tags" },
-      { label: "Search stories", value: "search" },
-      { label: "Show full help", value: "help" },
-      { label: "Exit", value: "exit" }
-    ]
-  });
-
-  if (isCancel(action) || action === "exit") {
-    outro("No changes made.");
-    return;
-  }
-
-  await runResourceAction(action as ResourceAction, common, program);
-  outro("Interactive flow complete.");
 }

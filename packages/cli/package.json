@@ -7,10 +7,7 @@
     "chowda": "./scripts/cli"
   },
   "scripts": {
-    "cli": "./scripts/cli",
-    "dev": "./scripts/cli",
-    "build": "echo 'TODO: build @chowda/cli'",
-    "test": "echo 'TODO: test @chowda/cli'"
+    "cli": "./scripts/cli"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
