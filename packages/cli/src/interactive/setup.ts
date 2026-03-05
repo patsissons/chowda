@@ -1,6 +1,7 @@
 import { intro, isCancel, note, outro, text } from "@clack/prompts";
 
-import { DEFAULT_BASE_URL, DEFAULT_TIMEOUT_MS } from "../config.js";
+import { ENV_LOCAL_PATH, resolveRuntimeConfig, writeEnvLocal } from "../config.js";
+import { fail } from "../core/errors.js";
 import { normalizeBaseUrl } from "../lobsters/api.js";
 
 function examplesFromDefaults(baseUrl: string, timeoutMs: number): string {
@@ -11,12 +12,14 @@ function examplesFromDefaults(baseUrl: string, timeoutMs: number): string {
   ].join("\n");
 }
 
-export async function runOnboarding(): Promise<void> {
-  intro("chowda CLI onboarding");
+export async function runSetup(): Promise<void> {
+  intro("chowda CLI setup");
+
+  const runtimeConfig = resolveRuntimeConfig();
 
   const baseUrlInput = await text({
     message: "Default Lobsters base URL",
-    initialValue: DEFAULT_BASE_URL,
+    initialValue: runtimeConfig.baseUrl,
     validate(value) {
       if (!String(value).trim()) {
         return "Base URL is required";
@@ -26,13 +29,13 @@ export async function runOnboarding(): Promise<void> {
   });
 
   if (isCancel(baseUrlInput)) {
-    outro("Onboarding cancelled.");
+    outro("Setup cancelled.");
     return;
   }
 
   const timeoutInput = await text({
     message: "Default timeout (ms)",
-    initialValue: String(DEFAULT_TIMEOUT_MS),
+    initialValue: String(runtimeConfig.timeoutMs),
     validate(value) {
       const parsed = Number(value);
       if (!Number.isInteger(parsed) || parsed < 1) {
@@ -43,12 +46,21 @@ export async function runOnboarding(): Promise<void> {
   });
 
   if (isCancel(timeoutInput)) {
-    outro("Onboarding cancelled.");
+    outro("Setup cancelled.");
     return;
   }
 
   const normalizedBaseUrl = normalizeBaseUrl(baseUrlInput);
   const timeoutMs = Number(timeoutInput);
+
+  try {
+    writeEnvLocal({
+      baseUrl: normalizedBaseUrl,
+      timeoutMs
+    });
+  } catch (error) {
+    fail(`Failed to write ${ENV_LOCAL_PATH}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   note(
     JSON.stringify(
@@ -59,9 +71,9 @@ export async function runOnboarding(): Promise<void> {
       null,
       2
     ),
-    "Recommended defaults"
+    "Saved defaults"
   );
-
+  note(ENV_LOCAL_PATH, "Wrote file");
   note(examplesFromDefaults(normalizedBaseUrl, timeoutMs), "Commands to try");
-  outro("Onboarding complete.");
+  outro("Setup complete.");
 }

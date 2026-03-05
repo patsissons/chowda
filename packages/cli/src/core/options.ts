@@ -1,6 +1,6 @@
 import { Command, InvalidArgumentError } from "commander";
 
-import { DEFAULT_BASE_URL, DEFAULT_TIMEOUT_MS } from "../config.js";
+import { resolveRuntimeConfig } from "../config.js";
 import { normalizeBaseUrl } from "../lobsters/api.js";
 import { CommonOptions } from "../types.js";
 
@@ -15,13 +15,15 @@ export function parsePositiveInteger(label: string) {
 }
 
 export function addCommonOptions(command: Command): Command {
+  const runtimeConfig = resolveRuntimeConfig();
+
   return command
-    .option("--base-url <url>", "override Lobsters base URL", DEFAULT_BASE_URL)
+    .option("--base-url <url>", "override Lobsters base URL", runtimeConfig.baseUrl)
     .option(
       "--timeout-ms <ms>",
       "request timeout in milliseconds",
       parsePositiveInteger("timeout-ms"),
-      DEFAULT_TIMEOUT_MS
+      runtimeConfig.timeoutMs
     )
     .option("--json", "print JSON output", false)
     .option("--raw", "print raw response body", false);

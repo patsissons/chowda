@@ -1,7 +1,7 @@
 import { confirm, intro, isCancel, note, outro, select, text } from "@clack/prompts";
 import { Command } from "commander";
 
-import { DEFAULT_BASE_URL, DEFAULT_TIMEOUT_MS } from "../config.js";
+import { resolveRuntimeConfig } from "../config.js";
 import { normalizeBaseUrl } from "../lobsters/api.js";
 import {
   FEED_TYPES,
@@ -71,8 +71,10 @@ async function promptInteger(message: string, initialValue: number, min: number)
 }
 
 async function promptRuntimeOptions(): Promise<CommonOptions | null> {
+  const runtimeConfig = resolveRuntimeConfig();
+
   const useDefaults = await confirm({
-    message: "Use default base URL and timeout?",
+    message: "Use configured base URL and timeout?",
     initialValue: true
   });
 
@@ -82,19 +84,19 @@ async function promptRuntimeOptions(): Promise<CommonOptions | null> {
 
   if (useDefaults) {
     return {
-      baseUrl: DEFAULT_BASE_URL,
-      timeoutMs: DEFAULT_TIMEOUT_MS,
+      baseUrl: runtimeConfig.baseUrl,
+      timeoutMs: runtimeConfig.timeoutMs,
       raw: false,
       json: false
     };
   }
 
-  const baseUrl = await promptRequiredText("Lobsters base URL", DEFAULT_BASE_URL);
+  const baseUrl = await promptRequiredText("Lobsters base URL", runtimeConfig.baseUrl);
   if (baseUrl === null) {
     return null;
   }
 
-  const timeoutMs = await promptInteger("Timeout (ms)", DEFAULT_TIMEOUT_MS, 1);
+  const timeoutMs = await promptInteger("Timeout (ms)", runtimeConfig.timeoutMs, 1);
   if (timeoutMs === null) {
     return null;
   }

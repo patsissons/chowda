@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
-    "commander": "^14.0.1"
+    "commander": "^14.0.1",
+    "dotenv-flow": "^4.1.0"
   },
   "devDependencies": {
     "tsx": "^4.20.6"
