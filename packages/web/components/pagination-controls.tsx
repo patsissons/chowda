@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 
-type TabValue = 'hottest'
+type TabValue = 'hottest' | 'newest' | 'active'
 
 type PaginationControlsProps = {
   tab: TabValue

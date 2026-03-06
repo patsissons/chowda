@@ -10,7 +10,7 @@ const DEFAULT_TAB = 'hottest'
 const APP_PAGE_SIZE = 10
 const SOURCE_PAGE_SIZE = 25
 
-type TabValue = 'hottest'
+type TabValue = 'hottest' | 'newest' | 'active'
 
 type SearchParams = {
   tab?: string
@@ -35,7 +35,10 @@ type PagedStories = {
 }
 
 function normalizeTab(tab?: string): TabValue {
-  return tab === DEFAULT_TAB ? DEFAULT_TAB : DEFAULT_TAB
+  if (tab === 'newest' || tab === 'active' || tab === 'hottest') {
+    return tab
+  }
+  return DEFAULT_TAB
 }
 
 function normalizePage(page?: string): number {
@@ -51,28 +54,38 @@ function domainFromUrl(url: string): string | null {
   }
 }
 
-async function fetchHottestStories(page: number): Promise<LobstersStory[]> {
-  const response = await fetch(`https://lobste.rs/hottest.json?page=${page}`, {
+function feedUrlFor(tab: TabValue, page: number): string {
+  if (tab === 'newest') {
+    return `https://lobste.rs/newest/page/${page}.json`
+  }
+  if (tab === 'active') {
+    return `https://lobste.rs/active/page/${page}.json`
+  }
+  return `https://lobste.rs/page/${page}.json`
+}
+
+async function fetchFeedStories(tab: TabValue, page: number): Promise<LobstersStory[]> {
+  const response = await fetch(feedUrlFor(tab, page), {
     next: { revalidate: 60 },
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to load hottest feed page ${page}`)
+    throw new Error(`Failed to load ${tab} feed page ${page}`)
   }
 
   return (await response.json()) as LobstersStory[]
 }
 
-async function fetchStoriesForAppPage(page: number): Promise<PagedStories> {
+async function fetchStoriesForAppPage(tab: TabValue, page: number): Promise<PagedStories> {
   const startIndex = (page - 1) * APP_PAGE_SIZE
   const sourcePage = Math.floor(startIndex / SOURCE_PAGE_SIZE) + 1
   const offsetWithinSource = startIndex % SOURCE_PAGE_SIZE
 
-  const firstSourcePage = await fetchHottestStories(sourcePage)
+  const firstSourcePage = await fetchFeedStories(tab, sourcePage)
   let combinedStories = firstSourcePage.slice(offsetWithinSource)
 
   if (combinedStories.length < APP_PAGE_SIZE + 1) {
-    const secondSourcePage = await fetchHottestStories(sourcePage + 1)
+    const secondSourcePage = await fetchFeedStories(tab, sourcePage + 1)
     combinedStories = [...combinedStories, ...secondSourcePage]
   }
 
@@ -92,11 +105,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   let feedError: string | null = null
 
   try {
-    const pagedStories = await fetchStoriesForAppPage(currentPage)
+    const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage)
     stories = pagedStories.stories
     hasNextPage = pagedStories.hasNextPage
   } catch {
-    feedError = 'Unable to load the hottest feed right now. Please try again shortly.'
+    feedError = 'Unable to load the selected feed right now. Please try again shortly.'
   }
 
   const isFirstPage = currentPage === 1
@@ -162,9 +175,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               href="?tab=hottest&page=1"
               role="tab"
               aria-selected={activeTab === 'hottest'}
-              className="-mb-px inline-flex rounded-t-md border border-border border-b-surface bg-surface px-3 py-2 text-sm font-medium text-text"
+              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                activeTab === 'hottest'
+                  ? 'border-border border-b-surface bg-surface text-text'
+                  : 'border-transparent text-muted hover:text-text'
+              }`}
             >
               🔥 Hottest
+            </Link>
+            <Link
+              href="?tab=newest&page=1"
+              role="tab"
+              aria-selected={activeTab === 'newest'}
+              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                activeTab === 'newest'
+                  ? 'border-border border-b-surface bg-surface text-text'
+                  : 'border-transparent text-muted hover:text-text'
+              }`}
+            >
+              🆕 Newest
+            </Link>
+            <Link
+              href="?tab=active&page=1"
+              role="tab"
+              aria-selected={activeTab === 'active'}
+              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                activeTab === 'active'
+                  ? 'border-border border-b-surface bg-surface text-text'
+                  : 'border-transparent text-muted hover:text-text'
+              }`}
+            >
+              ⚡ Active
             </Link>
           </div>
         </div>
