@@ -9,12 +9,14 @@ import { ThemeToggle } from '@/components/theme-toggle'
 const DEFAULT_TAB = 'hottest'
 const APP_PAGE_SIZE = 10
 const SOURCE_PAGE_SIZE = 25
+const LOBSTERS_BASE_URL = 'https://lobste.rs'
 
-type TabValue = 'hottest' | 'newest' | 'active'
+type TabValue = 'hottest' | 'newest' | 'active' | 'search'
 
 type SearchParams = {
   tab?: string
   page?: string
+  q?: string
 }
 
 type LobstersStory = {
@@ -23,8 +25,6 @@ type LobstersStory = {
   url: string
   score: number
   comment_count: number
-  created_at: string
-  short_id_url: string
   comments_url: string
   submitter_user: string
 }
@@ -34,16 +34,34 @@ type PagedStories = {
   hasNextPage: boolean
 }
 
-function normalizeTab(tab?: string): TabValue {
+function normalizeQuery(query?: string): string | null {
+  const trimmed = (query ?? '').trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeTab(tab: string | undefined, query: string | null): TabValue {
   if (tab === 'newest' || tab === 'active' || tab === 'hottest') {
     return tab
   }
+
+  if (tab === 'search' && query) {
+    return 'search'
+  }
+
   return DEFAULT_TAB
 }
 
 function normalizePage(page?: string): number {
   const parsed = Number.parseInt(page ?? '', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+}
+
+function queryFor(tab: TabValue, page: number, searchQuery?: string | null): string {
+  const params = new URLSearchParams({ tab, page: String(page) })
+  if (tab === 'search' && searchQuery) {
+    params.set('q', searchQuery)
+  }
+  return `?${params.toString()}`
 }
 
 function domainFromUrl(url: string): string | null {
@@ -54,17 +72,72 @@ function domainFromUrl(url: string): string | null {
   }
 }
 
-function feedUrlFor(tab: TabValue, page: number): string {
-  if (tab === 'newest') {
-    return `https://lobste.rs/newest/page/${page}.json`
-  }
-  if (tab === 'active') {
-    return `https://lobste.rs/active/page/${page}.json`
-  }
-  return `https://lobste.rs/page/${page}.json`
+function htmlToText(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-async function fetchFeedStories(tab: TabValue, page: number): Promise<LobstersStory[]> {
+function joinUrl(baseUrl: string, pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    return pathOrUrl
+  }
+  return `${baseUrl}${pathOrUrl.startsWith('/') ? '' : '/'}${pathOrUrl}`
+}
+
+function parseSearchHtml(html: string): LobstersStory[] {
+  const blocks = html.split('<li id="story_').slice(1)
+  const results: LobstersStory[] = []
+
+  for (const block of blocks) {
+    const end = block.indexOf('</li>')
+    if (end === -1) {
+      continue
+    }
+
+    const item = block.slice(0, end)
+    const shortIdMatch = item.match(/data-shortid="([^"]+)"/)
+    const linkMatch = item.match(/<span[^>]*class="link[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/)
+    const submitterMatch = item.match(/<a class="u-author[^>]*>([^<]+)<\/a>/)
+    const commentsMatch = item.match(
+      /<span class="comments_label">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?(\d+)\s+comments?/,
+    )
+    const scoreMatch = item.match(/<a class="upvoter"[^>]*>(\d+|~)<\/a>/)
+
+    if (!shortIdMatch || !linkMatch || !submitterMatch) {
+      continue
+    }
+
+    results.push({
+      short_id: shortIdMatch[1],
+      title: htmlToText(linkMatch[2]),
+      url: joinUrl(LOBSTERS_BASE_URL, htmlToText(linkMatch[1])),
+      score: scoreMatch && scoreMatch[1] !== '~' ? Number(scoreMatch[1]) : 0,
+      submitter_user: htmlToText(submitterMatch[1]),
+      comment_count: commentsMatch ? Number(commentsMatch[2]) : 0,
+      comments_url: commentsMatch ? joinUrl(LOBSTERS_BASE_URL, htmlToText(commentsMatch[1])) : '',
+    })
+  }
+
+  return results
+}
+
+function feedUrlFor(tab: Exclude<TabValue, 'search'>, page: number): string {
+  if (tab === 'newest') {
+    return `${LOBSTERS_BASE_URL}/newest/page/${page}.json`
+  }
+  if (tab === 'active') {
+    return `${LOBSTERS_BASE_URL}/active/page/${page}.json`
+  }
+  return `${LOBSTERS_BASE_URL}/page/${page}.json`
+}
+
+async function fetchFeedStories(tab: Exclude<TabValue, 'search'>, page: number): Promise<LobstersStory[]> {
   const response = await fetch(feedUrlFor(tab, page), {
     next: { revalidate: 60 },
   })
@@ -76,16 +149,39 @@ async function fetchFeedStories(tab: TabValue, page: number): Promise<LobstersSt
   return (await response.json()) as LobstersStory[]
 }
 
-async function fetchStoriesForAppPage(tab: TabValue, page: number): Promise<PagedStories> {
+async function fetchSearchStories(query: string, page: number): Promise<LobstersStory[]> {
+  const params = new URLSearchParams({
+    what: 'stories',
+    order: 'newest',
+    q: query,
+    page: String(page),
+  })
+
+  const response = await fetch(`${LOBSTERS_BASE_URL}/search?${params.toString()}`, {
+    next: { revalidate: 60 },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to load search page ${page}`)
+  }
+
+  return parseSearchHtml(await response.text())
+}
+
+async function fetchStoriesForAppPage(tab: TabValue, page: number, searchQuery: string | null): Promise<PagedStories> {
   const startIndex = (page - 1) * APP_PAGE_SIZE
   const sourcePage = Math.floor(startIndex / SOURCE_PAGE_SIZE) + 1
   const offsetWithinSource = startIndex % SOURCE_PAGE_SIZE
 
-  const firstSourcePage = await fetchFeedStories(tab, sourcePage)
+  const loadSourcePage = tab === 'search'
+    ? async (sourcePageNumber: number) => fetchSearchStories(searchQuery ?? '', sourcePageNumber)
+    : async (sourcePageNumber: number) => fetchFeedStories(tab, sourcePageNumber)
+
+  const firstSourcePage = await loadSourcePage(sourcePage)
   let combinedStories = firstSourcePage.slice(offsetWithinSource)
 
   if (combinedStories.length < APP_PAGE_SIZE + 1) {
-    const secondSourcePage = await fetchFeedStories(tab, sourcePage + 1)
+    const secondSourcePage = await loadSourcePage(sourcePage + 1)
     combinedStories = [...combinedStories, ...secondSourcePage]
   }
 
@@ -97,7 +193,8 @@ async function fetchStoriesForAppPage(tab: TabValue, page: number): Promise<Page
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams
-  const activeTab = normalizeTab(params.tab)
+  const searchQuery = normalizeQuery(params.q)
+  const activeTab = normalizeTab(params.tab, searchQuery)
   const currentPage = normalizePage(params.page)
 
   let stories: LobstersStory[] = []
@@ -105,7 +202,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   let feedError: string | null = null
 
   try {
-    const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage)
+    const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage, searchQuery)
     stories = pagedStories.stories
     hasNextPage = pagedStories.hasNextPage
   } catch {
@@ -113,6 +210,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }
 
   const isFirstPage = currentPage === 1
+  const hasSearchTab = Boolean(searchQuery)
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-14 pt-5 sm:px-6 sm:pt-8">
@@ -169,10 +267,31 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </section>
 
       <section className="mt-8 rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-6">
+        <form action="/" method="get" className="mb-4 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="tab" value="search" />
+          <input type="hidden" name="page" value="1" />
+          <input
+            type="search"
+            name="q"
+            defaultValue={searchQuery ?? ''}
+            placeholder="Search Lobsters stories"
+            enterKeyHint="search"
+            className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+            aria-label="Search Lobsters stories"
+            required
+          />
+          <button
+            type="submit"
+            className="h-10 rounded-md border border-border px-4 text-sm font-medium transition hover:bg-accentSoft"
+          >
+            Search
+          </button>
+        </form>
+
         <div className="mb-4 border-b border-border">
           <div className="flex items-center gap-2" role="tablist" aria-label="Feed tabs">
             <Link
-              href="?tab=hottest&page=1"
+              href={queryFor('hottest', 1)}
               role="tab"
               aria-selected={activeTab === 'hottest'}
               className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
@@ -184,7 +303,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               🔥 Hottest
             </Link>
             <Link
-              href="?tab=newest&page=1"
+              href={queryFor('newest', 1)}
               role="tab"
               aria-selected={activeTab === 'newest'}
               className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
@@ -196,7 +315,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               🆕 Newest
             </Link>
             <Link
-              href="?tab=active&page=1"
+              href={queryFor('active', 1)}
               role="tab"
               aria-selected={activeTab === 'active'}
               className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
@@ -207,6 +326,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             >
               ⚡ Active
             </Link>
+            {hasSearchTab ? (
+              <Link
+                href={queryFor('search', 1, searchQuery)}
+                role="tab"
+                aria-selected={activeTab === 'search'}
+                className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                  activeTab === 'search'
+                    ? 'border-border border-b-surface bg-surface text-text'
+                    : 'border-transparent text-muted hover:text-text'
+                }`}
+              >
+                🔍 Search
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -215,8 +348,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           currentPage={currentPage}
           isFirstPage={isFirstPage}
           hasNextPage={hasNextPage}
+          searchQuery={searchQuery ?? undefined}
           className="mb-5 border-b border-border pb-4"
         />
+
+        {activeTab === 'search' && searchQuery ? (
+          <p className="mb-4 text-sm text-muted">
+            Results for <span className="font-medium text-text">"{searchQuery}"</span>
+          </p>
+        ) : null}
 
         {feedError ? (
           <p className="rounded-lg border border-border bg-accentSoft p-3 text-sm text-text">
@@ -246,12 +386,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       {domain ? ` · ${domain}` : ''}
                     </p>
 
-                    <Link
-                      href={story.comments_url}
-                      className="w-fit text-xs text-accent underline-offset-2 hover:underline"
-                    >
-                      View discussion
-                    </Link>
+                    {story.comments_url ? (
+                      <Link
+                        href={story.comments_url}
+                        className="w-fit text-xs text-accent underline-offset-2 hover:underline"
+                      >
+                        View discussion
+                      </Link>
+                    ) : null}
                   </div>
                 </li>
               )
@@ -264,6 +406,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           currentPage={currentPage}
           isFirstPage={isFirstPage}
           hasNextPage={hasNextPage}
+          searchQuery={searchQuery ?? undefined}
           className="mt-5 border-t border-border pt-4"
         />
       </section>

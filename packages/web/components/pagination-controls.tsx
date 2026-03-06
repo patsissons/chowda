@@ -5,18 +5,22 @@ import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 
-type TabValue = 'hottest' | 'newest' | 'active'
+type TabValue = 'hottest' | 'newest' | 'active' | 'search'
 
 type PaginationControlsProps = {
   tab: TabValue
   currentPage: number
   isFirstPage: boolean
   hasNextPage: boolean
+  searchQuery?: string
   className?: string
 }
 
-function queryFor(tab: TabValue, page: number): string {
+function queryFor(tab: TabValue, page: number, searchQuery?: string): string {
   const params = new URLSearchParams({ tab, page: String(page) })
+  if (tab === 'search' && searchQuery) {
+    params.set('q', searchQuery)
+  }
   return `?${params.toString()}`
 }
 
@@ -25,6 +29,7 @@ export function PaginationControls({
   currentPage,
   isFirstPage,
   hasNextPage,
+  searchQuery,
   className,
 }: PaginationControlsProps) {
   const router = useRouter()
@@ -34,7 +39,7 @@ export function PaginationControls({
   function goToPage(page: number) {
     setTargetPage(page)
     startTransition(() => {
-      router.push(queryFor(tab, page))
+      router.push(queryFor(tab, page, searchQuery))
     })
   }
 
