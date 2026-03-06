@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { Github } from 'lucide-react'
 
 import { AppLaunchDrawer } from '@/components/app-launch-drawer'
+import { DiscussionDrawer } from '@/components/discussion-drawer'
 import { PaginationControls } from '@/components/pagination-controls'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { fetchDiscussion, type DiscussionPayload } from '@/lib/discussions'
 
 const DEFAULT_TAB = 'hottest'
 const APP_PAGE_SIZE = 10
@@ -17,6 +19,7 @@ type SearchParams = {
   tab?: string
   page?: string
   q?: string
+  discussion?: string
 }
 
 type LobstersStory = {
@@ -196,10 +199,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const searchQuery = normalizeQuery(params.q)
   const activeTab = normalizeTab(params.tab, searchQuery)
   const currentPage = normalizePage(params.page)
+  const selectedDiscussionId = normalizeQuery(params.discussion)
 
   let stories: LobstersStory[] = []
   let hasNextPage = false
   let feedError: string | null = null
+  let initialDiscussion: DiscussionPayload | null = null
 
   try {
     const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage, searchQuery)
@@ -207,6 +212,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     hasNextPage = pagedStories.hasNextPage
   } catch {
     feedError = 'Unable to load the selected feed right now. Please try again shortly.'
+  }
+
+  if (!feedError && selectedDiscussionId && stories.some((story) => story.short_id === selectedDiscussionId)) {
+    try {
+      initialDiscussion = await fetchDiscussion(selectedDiscussionId)
+    } catch {
+      initialDiscussion = null
+    }
   }
 
   const isFirstPage = currentPage === 1
@@ -387,12 +400,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     </p>
 
                     {story.comments_url ? (
-                      <Link
-                        href={story.comments_url}
-                        className="w-fit text-xs text-accent underline-offset-2 hover:underline"
-                      >
-                        View discussion
-                      </Link>
+                      <DiscussionDrawer
+                        shortId={story.short_id}
+                        storyTitle={story.title}
+                        commentCount={story.comment_count}
+                        commentsUrl={story.comments_url}
+                        initialDiscussion={initialDiscussion?.short_id === story.short_id ? initialDiscussion : null}
+                      />
                     ) : null}
                   </div>
                 </li>
