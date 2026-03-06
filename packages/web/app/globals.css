@@ -57,3 +57,37 @@ h3,
   background: hsl(var(--accent));
   color: #fff;
 }
+
+.hero-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 300ms ease,
+    opacity 300ms ease,
+    margin 300ms ease;
+}
+
+.hero-collapse--collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-bottom: -0.25rem;
+}
+
+.hero-collapse__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hero-collapse__panel {
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-collapse {
+    transition: none;
+  }
+
+  .hero-collapse__panel {
+    transition: none !important;
+  }
+}

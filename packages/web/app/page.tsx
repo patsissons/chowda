@@ -1,11 +1,8 @@
 import Link from 'next/link'
-import { Github } from 'lucide-react'
 
-import { AppLaunchDrawer } from '@/components/app-launch-drawer'
 import { DiscussionDrawer } from '@/components/discussion-drawer'
+import { HomeChrome } from '@/components/home-chrome'
 import { PaginationControls } from '@/components/pagination-controls'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { fetchDiscussion, type DiscussionPayload } from '@/lib/discussions'
 
 const DEFAULT_TAB = 'hottest'
@@ -227,59 +224,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-14 pt-5 sm:px-6 sm:pt-8">
-      <header className="mb-10 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <div className="min-w-0">
-          <p className="brand truncate text-2xl font-semibold sm:text-3xl">Chowda</p>
-          <p className="text-sm text-muted">
-            Calm reads and smarter discovery for Lobsters readers
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-9 w-9 rounded-full p-0">
-            <a
-              href="https://github.com/patsissons/chowda"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open Chowda on GitHub"
-            >
-              <Github className="h-4 w-4" aria-hidden />
-            </a>
-          </Button>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-card sm:p-8">
-        <div className="absolute -right-9 -top-8 h-24 w-24 rounded-full bg-accent/15 blur-2xl" />
-        <div className="absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
-
-        <p className="mb-4 inline-flex max-w-full truncate rounded-full border border-border bg-accentSoft px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted">
-          It's pronounced <span className="font-bold mx-1 italic">“Chow-DAH!”</span>
-        </p>
-
-        <h1 className="mb-4 max-w-3xl text-balance text-3xl font-semibold leading-tight sm:text-5xl">
-          A modern, minimal front door for Lobsters readers.
-        </h1>
-
-        <p className="max-w-3xl break-words text-base text-muted sm:text-lg">
-          Chowda brings a cleaner, mobile-friendly Lobsters experience with focused reading, quick
-          navigation, and room for community-powered utilities.
-        </p>
-
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <AppLaunchDrawer />
-          <a
-            href="https://lobste.rs"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-accentSoft"
-          >
-            Visit Lobsters
-          </a>
-        </div>
-      </section>
-
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-6">
+      <HomeChrome>
+        <section className="rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-6">
         <form action="/" method="get" className="mb-4 flex flex-wrap items-center gap-2">
           <input type="hidden" name="tab" value="search" />
           <input type="hidden" name="page" value="1" />
@@ -423,7 +369,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           searchQuery={searchQuery ?? undefined}
           className="mt-5 border-t border-border pt-4"
         />
-      </section>
+        </section>
+      </HomeChrome>
     </main>
   )
 }
