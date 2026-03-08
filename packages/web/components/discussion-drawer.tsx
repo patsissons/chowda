@@ -311,7 +311,13 @@ export function DiscussionDrawer({
 
           <div className="mt-6 min-h-0 flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] pr-1">
             {loading ? (
-              <p className="text-sm text-muted">Loading discussion…</p>
+              <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-sm text-muted">
+                <span
+                  aria-hidden
+                  className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-accent"
+                />
+                <p>Loading discussion…</p>
+              </div>
             ) : error ? (
               <div className="space-y-3 rounded-2xl border border-border bg-accentSoft p-4">
                 <p className="text-sm text-text">{error}</p>
