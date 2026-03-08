@@ -248,10 +248,10 @@ export function DiscussionDrawer({
 
       <SheetContent
         side="bottom"
-        className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-10 sm:px-6"
+        className="h-[min(100dvh,56rem)] px-4 pt-10 sm:px-6"
       >
-        <div className="mx-auto w-full max-w-3xl">
-          <SheetHeader className="pr-10">
+        <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden">
+          <SheetHeader className="shrink-0 pr-10">
             <div className="flex items-start gap-3">
               <SheetTitle className="min-w-0 flex-1 text-xl sm:text-2xl">
                 {renderedDiscussion.title}
@@ -281,7 +281,7 @@ export function DiscussionDrawer({
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6">
+          <div className="mt-6 min-h-0 flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] pr-1">
             {loading ? (
               <p className="text-sm text-muted">Loading discussion…</p>
             ) : error ? (

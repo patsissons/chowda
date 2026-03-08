@@ -35,7 +35,7 @@ const sheetVariants = cva(
       side: {
         top: 'inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
         bottom:
-          'inset-x-0 bottom-0 w-full max-h-[calc(100vh-0.75rem)] overflow-y-auto overscroll-contain rounded-t-3xl border border-border bg-surface data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+          'inset-x-0 bottom-0 flex w-full max-h-[100dvh] flex-col overflow-hidden overscroll-contain rounded-t-3xl border border-border bg-surface data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
         left: 'inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm',
         right:
           'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
@@ -70,8 +70,8 @@ const SheetContent = React.forwardRef<
     return (
       <SheetPortal>
         <SheetOverlay />
-        <div className="fixed inset-x-0 bottom-0 z-50 flex max-h-screen items-end justify-center bg-surface/95 pointer-events-none">
-          <div className="w-full pointer-events-auto">{content}</div>
+        <div className="fixed inset-x-0 bottom-0 z-50 flex max-h-[100dvh] items-end justify-center pointer-events-none">
+          <div className="w-full max-h-[100dvh] pointer-events-auto">{content}</div>
         </div>
       </SheetPortal>
     )
