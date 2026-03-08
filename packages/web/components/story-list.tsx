@@ -150,6 +150,7 @@ export function StoryList({ stories, initialDiscussion }: StoryListProps) {
                       <DiscussionDrawer
                         shortId={story.short_id}
                         storyTitle={story.title}
+                        storyUrl={story.url}
                         storyPermalink={storyPermalink}
                         commentCount={story.comment_count}
                         commentsUrl={story.comments_url}

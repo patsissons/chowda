@@ -18,6 +18,7 @@ import { formatPostedAt, lobstersUserUrl } from '@/lib/lobsters'
 type DiscussionDrawerProps = {
   shortId: string
   storyTitle: string
+  storyUrl: string
   storyPermalink: string
   commentCount: number
   commentsUrl: string
@@ -132,6 +133,7 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
 export function DiscussionDrawer({
   shortId,
   storyTitle,
+  storyUrl,
   storyPermalink,
   commentCount,
   commentsUrl,
@@ -255,7 +257,7 @@ export function DiscussionDrawer({
             <div className="flex items-start gap-3">
               <SheetTitle className="min-w-0 flex-1 text-xl sm:text-2xl">
                 <a
-                  href={storyPermalink}
+                  href={storyUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="underline-offset-2 hover:underline"
