@@ -1,6 +1,4 @@
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
-
 import { DiscussionDrawer } from '@/components/discussion-drawer'
 import { HomeChrome } from '@/components/home-chrome'
 import { PaginationControls } from '@/components/pagination-controls'
@@ -422,7 +420,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                             aria-label={`Open ${story.title} on Lobsters`}
                             title="Open story on Lobsters"
                           >
-                            <ExternalLink className="h-4 w-4" aria-hidden />
+                            <span aria-hidden className="text-sm leading-none">
+                              🦞
+                            </span>
                           </a>
                         </Button>
                       </div>
@@ -462,7 +462,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                                 aria-label={`Open ${story.submitter_user} on Lobsters`}
                                 title="Open author on Lobsters"
                               >
-                                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                                <span aria-hidden className="text-xs leading-none">
+                                  🦞
+                                </span>
                               </a>
                             </Button>
                             {postedAt ? (

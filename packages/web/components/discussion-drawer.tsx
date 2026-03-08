@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { ExternalLink } from 'lucide-react'
 
 import {
   Sheet,
@@ -49,7 +48,9 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
                   aria-label={`Open ${comment.commenting_user} on Lobsters`}
                   title="Open author on Lobsters"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  <span aria-hidden className="text-xs leading-none">
+                    🦞
+                  </span>
                 </a>
               </Button>
               {comment.score !== null ? (
@@ -78,7 +79,9 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
               aria-label="Open comment on Lobsters"
               title="Open comment on Lobsters"
             >
-              <ExternalLink className="h-4 w-4" aria-hidden />
+              <span aria-hidden className="text-sm leading-none">
+                🦞
+              </span>
             </a>
           </Button>
         </div>
@@ -237,7 +240,9 @@ export function DiscussionDrawer({
                   aria-label={`Open ${renderedDiscussion.title} on Lobsters`}
                   title="Open story on Lobsters"
                 >
-                  <ExternalLink className="h-4 w-4" aria-hidden />
+                  <span aria-hidden className="text-sm leading-none">
+                    🦞
+                  </span>
                 </a>
               </Button>
             </div>
