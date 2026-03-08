@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { Github, PanelTopClose, PanelTopOpen, X } from 'lucide-react'
 
 import { AppLaunchDrawer } from '@/components/app-launch-drawer'
@@ -38,7 +39,9 @@ export function HomeChrome({ children }: HomeChromeProps) {
     <>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="min-w-0">
-          <p className="brand truncate text-2xl font-semibold sm:text-3xl">Chowda</p>
+          <Link href="/" className="brand truncate text-2xl font-semibold sm:text-3xl">
+            Chowda
+          </Link>
           <p className="text-sm text-muted">Calm reads and smarter discovery for Lobsters readers</p>
         </div>
         <div className="flex items-center gap-2">
