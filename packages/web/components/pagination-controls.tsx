@@ -8,16 +8,35 @@ import { cn } from '@/lib/utils'
 type TabValue = 'hottest' | 'newest' | 'active' | 'search'
 
 type PaginationControlsProps = {
-  tab: TabValue
+  tab?: TabValue
   currentPage: number
   isFirstPage: boolean
   hasNextPage: boolean
   searchQuery?: string
+  pathname?: string
   className?: string
 }
 
-function queryFor(tab: TabValue, page: number, searchQuery?: string): string {
-  const params = new URLSearchParams({ tab, page: String(page) })
+function hrefForPage(
+  page: number,
+  {
+    pathname,
+    tab,
+    searchQuery,
+  }: Pick<PaginationControlsProps, 'pathname' | 'tab' | 'searchQuery'>,
+): string {
+  if (pathname) {
+    const params = new URLSearchParams()
+
+    if (page > 1) {
+      params.set('page', String(page))
+    }
+
+    const queryString = params.toString()
+    return queryString ? `${pathname}?${queryString}` : pathname
+  }
+
+  const params = new URLSearchParams({ tab: tab ?? 'hottest', page: String(page) })
   if (tab === 'search' && searchQuery) {
     params.set('q', searchQuery)
   }
@@ -30,6 +49,7 @@ export function PaginationControls({
   isFirstPage,
   hasNextPage,
   searchQuery,
+  pathname,
   className,
 }: PaginationControlsProps) {
   const router = useRouter()
@@ -39,7 +59,7 @@ export function PaginationControls({
   function goToPage(page: number) {
     setTargetPage(page)
     startTransition(() => {
-      router.push(queryFor(tab, page, searchQuery))
+      router.push(hrefForPage(page, { pathname, tab, searchQuery }))
     })
   }
 

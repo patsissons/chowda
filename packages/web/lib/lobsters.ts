@@ -14,6 +14,18 @@ export function lobstersUserUrl(username: string): string {
   return `${LOBSTERS_BASE_URL}/~${encodeURIComponent(username)}`
 }
 
+export function lobstersTagUrl(tag: string): string {
+  return `${LOBSTERS_BASE_URL}/t/${encodeURIComponent(tag)}`
+}
+
+export function userRoutePath(username: string): string {
+  return `/user/${encodeURIComponent(username)}`
+}
+
+export function tagRoutePath(tag: string): string {
+  return `/tag/${encodeURIComponent(tag)}`
+}
+
 export function normalizeLobstersDatetime(value: string): Date | null {
   const normalizedValue = value.includes('T') ? value : value.replace(' ', 'T')
   const date = new Date(normalizedValue)

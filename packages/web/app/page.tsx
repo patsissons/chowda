@@ -1,41 +1,24 @@
 import Link from 'next/link'
-import { DiscussionDrawer } from '@/components/discussion-drawer'
 import { HomeChrome } from '@/components/home-chrome'
 import { PaginationControls } from '@/components/pagination-controls'
-import { Button } from '@/components/ui/button'
+import { StoryList } from '@/components/story-list'
 import { fetchDiscussion, type DiscussionPayload } from '@/lib/discussions'
-import { formatPostedAt, joinLobstersUrl, LOBSTERS_BASE_URL, lobstersUserUrl } from '@/lib/lobsters'
+import {
+  fetchHomeStories,
+  attachAuthorAvatars,
+  type FrontPageTab,
+  type LobstersStory,
+} from '@/lib/story-feed'
 
 const DEFAULT_TAB = 'hottest'
-const APP_PAGE_SIZE = 10
-const SOURCE_PAGE_SIZE = 25
 
-type TabValue = 'hottest' | 'newest' | 'active' | 'search'
+type TabValue = FrontPageTab
 
 type SearchParams = {
   tab?: string
   page?: string
   q?: string
   discussion?: string
-}
-
-type LobstersStory = {
-  short_id: string
-  title: string
-  url: string
-  score: number
-  comment_count: number
-  created_at?: string
-  comments_url: string
-  short_id_url?: string
-  submitter_user: string
-  tags?: string[]
-  avatar_url?: string | null
-}
-
-type PagedStories = {
-  stories: LobstersStory[]
-  hasNextPage: boolean
 }
 
 function normalizeQuery(query?: string): string | null {
@@ -68,186 +51,6 @@ function queryFor(tab: TabValue, page: number, searchQuery?: string | null): str
   return `?${params.toString()}`
 }
 
-function domainFromUrl(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return null
-  }
-}
-
-function domainRootUrl(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    return `${parsed.protocol}//${parsed.hostname}`
-  } catch {
-    return null
-  }
-}
-
-function htmlToText(value: string): string {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function parseSearchHtml(html: string): LobstersStory[] {
-  const blocks = html.split('<li id="story_').slice(1)
-  const results: LobstersStory[] = []
-
-  for (const block of blocks) {
-    const end = block.indexOf('</li>')
-    if (end === -1) {
-      continue
-    }
-
-    const item = block.slice(0, end)
-    const shortIdMatch = item.match(/data-shortid="([^"]+)"/)
-    const linkMatch = item.match(
-      /<span[^>]*class="link[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/,
-    )
-    const submitterMatch = item.match(/<a class="u-author[^>]*>([^<]+)<\/a>/)
-    const timeMatch = item.match(/<time[^>]*datetime="([^"]+)"/)
-    const commentsMatch = item.match(
-      /<span class="comments_label">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?(\d+)\s+comments?/,
-    )
-    const scoreMatch = item.match(/<a class="upvoter"[^>]*>(\d+|~)<\/a>/)
-    const tagMatches = [...item.matchAll(/<a class="tag[^>]*>([^<]+)<\/a>/g)]
-    const avatarMatch = item.match(/<img[^>]*class="avatar"[^>]*src="([^"]+)"/)
-
-    if (!shortIdMatch || !linkMatch || !submitterMatch) {
-      continue
-    }
-
-    results.push({
-      short_id: shortIdMatch[1],
-      title: htmlToText(linkMatch[2]),
-      url: joinLobstersUrl(htmlToText(linkMatch[1])),
-      score: scoreMatch && scoreMatch[1] !== '~' ? Number(scoreMatch[1]) : 0,
-      created_at: timeMatch ? timeMatch[1] : undefined,
-      submitter_user: htmlToText(submitterMatch[1]),
-      tags: tagMatches.map((match) => htmlToText(match[1])),
-      avatar_url: avatarMatch ? joinLobstersUrl(htmlToText(avatarMatch[1])) : null,
-      comment_count: commentsMatch ? Number(commentsMatch[2]) : 0,
-      comments_url: commentsMatch ? joinLobstersUrl(htmlToText(commentsMatch[1])) : '',
-      short_id_url: `${LOBSTERS_BASE_URL}/s/${shortIdMatch[1]}`,
-    })
-  }
-
-  return results
-}
-
-function feedUrlFor(tab: Exclude<TabValue, 'search'>, page: number): string {
-  if (tab === 'newest') {
-    return `${LOBSTERS_BASE_URL}/newest/page/${page}.json`
-  }
-  if (tab === 'active') {
-    return `${LOBSTERS_BASE_URL}/active/page/${page}.json`
-  }
-  return `${LOBSTERS_BASE_URL}/page/${page}.json`
-}
-
-async function fetchFeedStories(
-  tab: Exclude<TabValue, 'search'>,
-  page: number,
-): Promise<LobstersStory[]> {
-  const response = await fetch(feedUrlFor(tab, page), {
-    next: { revalidate: 60 },
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to load ${tab} feed page ${page}`)
-  }
-
-  return (await response.json()) as LobstersStory[]
-}
-
-async function fetchSearchStories(query: string, page: number): Promise<LobstersStory[]> {
-  const params = new URLSearchParams({
-    what: 'stories',
-    order: 'newest',
-    q: query,
-    page: String(page),
-  })
-
-  const response = await fetch(`${LOBSTERS_BASE_URL}/search?${params.toString()}`, {
-    next: { revalidate: 60 },
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to load search page ${page}`)
-  }
-
-  return parseSearchHtml(await response.text())
-}
-
-async function fetchUserAvatarUrl(username: string): Promise<string | null> {
-  const response = await fetch(`${LOBSTERS_BASE_URL}/~${encodeURIComponent(username)}.json`, {
-    next: { revalidate: 3600 },
-  })
-
-  if (!response.ok) {
-    return null
-  }
-
-  const payload = (await response.json()) as { avatar_url?: string }
-  return payload.avatar_url ? joinLobstersUrl(payload.avatar_url) : null
-}
-
-async function attachAuthorAvatars(stories: LobstersStory[]): Promise<LobstersStory[]> {
-  const usernames = [...new Set(stories.map((story) => story.submitter_user).filter(Boolean))]
-
-  const avatarEntries = await Promise.all(
-    usernames.map(async (username) => {
-      try {
-        return [username, await fetchUserAvatarUrl(username)] as const
-      } catch {
-        return [username, null] as const
-      }
-    }),
-  )
-
-  const avatarMap = new Map(avatarEntries)
-
-  return stories.map((story) => ({
-    ...story,
-    avatar_url: story.avatar_url ?? avatarMap.get(story.submitter_user) ?? null,
-  }))
-}
-
-async function fetchStoriesForAppPage(
-  tab: TabValue,
-  page: number,
-  searchQuery: string | null,
-): Promise<PagedStories> {
-  const startIndex = (page - 1) * APP_PAGE_SIZE
-  const sourcePage = Math.floor(startIndex / SOURCE_PAGE_SIZE) + 1
-  const offsetWithinSource = startIndex % SOURCE_PAGE_SIZE
-
-  const loadSourcePage =
-    tab === 'search'
-      ? async (sourcePageNumber: number) => fetchSearchStories(searchQuery ?? '', sourcePageNumber)
-      : async (sourcePageNumber: number) => fetchFeedStories(tab, sourcePageNumber)
-
-  const firstSourcePage = await loadSourcePage(sourcePage)
-  let combinedStories = firstSourcePage.slice(offsetWithinSource)
-
-  if (combinedStories.length < APP_PAGE_SIZE + 1) {
-    const secondSourcePage = await loadSourcePage(sourcePage + 1)
-    combinedStories = [...combinedStories, ...secondSourcePage]
-  }
-
-  return {
-    stories: combinedStories.slice(0, APP_PAGE_SIZE),
-    hasNextPage: combinedStories.length > APP_PAGE_SIZE,
-  }
-}
-
 export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams
   const searchQuery = normalizeQuery(params.q)
@@ -261,7 +64,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   let initialDiscussion: DiscussionPayload | null = null
 
   try {
-    const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage, searchQuery)
+    const pagedStories = await fetchHomeStories(activeTab, currentPage, searchQuery)
     stories = await attachAuthorAvatars(pagedStories.stories)
     hasNextPage = pagedStories.hasNextPage
   } catch {
@@ -385,154 +188,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           ) : stories.length === 0 ? (
             <p className="text-sm text-muted">No stories found for this page.</p>
           ) : (
-            <ol className="divide-y divide-border">
-              {stories.map((story) => {
-                const domain = domainFromUrl(story.url)
-                const domainUrl = domainRootUrl(story.url)
-                const postedAt = formatPostedAt(story.created_at)
-                const storyPermalink =
-                  story.comments_url ||
-                  story.short_id_url ||
-                  `${LOBSTERS_BASE_URL}/s/${story.short_id}`
-                const authorProfileUrl = lobstersUserUrl(story.submitter_user)
-                return (
-                  <li key={story.short_id} className="py-4 first:pt-1">
-                    <div className="flex min-w-0 flex-col gap-2">
-                      <div className="flex items-start gap-2">
-                        <a
-                          href={story.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-w-0 flex-1 break-words text-base font-medium text-text underline-offset-2 hover:underline"
-                        >
-                          {story.title}
-                        </a>
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 shrink-0 rounded-full p-0"
-                        >
-                          <a
-                            href={storyPermalink}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Open ${story.title} on Lobsters`}
-                            title="Open story on Lobsters"
-                          >
-                            <span aria-hidden className="text-sm leading-none">
-                              🦞
-                            </span>
-                          </a>
-                        </Button>
-                      </div>
-
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          {story.avatar_url ? (
-                            <img
-                              src={story.avatar_url}
-                              alt={`${story.submitter_user} avatar`}
-                              className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-accentSoft text-[9px] font-semibold text-text">
-                              {story.submitter_user.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                            <span>{story.score} points</span>
-                            <span aria-hidden>·</span>
-                            <span>{story.comment_count} comments</span>
-                            <span aria-hidden>·</span>
-                            <span>by {story.submitter_user}</span>
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 rounded-full p-0 text-muted"
-                            >
-                              <a
-                                href={authorProfileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-label={`Open ${story.submitter_user} on Lobsters`}
-                                title="Open author on Lobsters"
-                              >
-                                <span aria-hidden className="text-xs leading-none">
-                                  🦞
-                                </span>
-                              </a>
-                            </Button>
-                            {postedAt ? (
-                              <>
-                                <span aria-hidden>·</span>
-                                <time dateTime={postedAt.iso} title={postedAt.absolute}>
-                                  {postedAt.absolute}
-                                </time>
-                                <span>({postedAt.relative})</span>
-                              </>
-                            ) : null}
-                            {domain ? (
-                              <>
-                                <span aria-hidden>·</span>
-                                {domainUrl ? (
-                                  <a
-                                    href={domainUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="break-all underline-offset-2 hover:underline"
-                                  >
-                                    {domain}
-                                  </a>
-                                ) : (
-                                  <span className="break-all">{domain}</span>
-                                )}
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="shrink-0">
-                            {story.comments_url ? (
-                              <DiscussionDrawer
-                                shortId={story.short_id}
-                                storyTitle={story.title}
-                                storyPermalink={storyPermalink}
-                                commentCount={story.comment_count}
-                                commentsUrl={story.comments_url}
-                                initialDiscussion={
-                                  initialDiscussion?.short_id === story.short_id
-                                    ? initialDiscussion
-                                    : null
-                                }
-                              />
-                            ) : null}
-                          </div>
-
-                          {story.tags && story.tags.length > 0 ? (
-                            <div className="flex min-w-0 flex-wrap justify-end gap-2">
-                              {story.tags.map((tag) => (
-                                <span
-                                  key={`${story.short_id}-${tag}`}
-                                  className="rounded-full border border-border bg-accentSoft px-1 py-[0.5px] text-[9px] font-medium uppercase tracking-wide text-muted"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
+            <StoryList stories={stories} initialDiscussion={initialDiscussion} />
           )}
 
           <PaginationControls
