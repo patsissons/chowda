@@ -251,7 +251,7 @@ export function DiscussionDrawer({
         className="h-[min(100dvh,56rem)] px-4 pt-10 sm:px-6"
       >
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden">
-          <SheetHeader className="shrink-0 pr-10">
+          <SheetHeader className="shrink-0 pr-5">
             <div className="flex items-start gap-3">
               <SheetTitle className="min-w-0 flex-1 text-xl sm:text-2xl">
                 <a
