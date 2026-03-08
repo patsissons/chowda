@@ -24,6 +24,31 @@ type DiscussionDrawerProps = {
   initialDiscussion?: DiscussionPayload | null
 }
 
+function RichDiscussionBody({
+  html,
+  plainText,
+  emptyMessage,
+}: {
+  html: string | null
+  plainText: string
+  emptyMessage: string
+}) {
+  if (html) {
+    return (
+      <div
+        className="discussion-rich-text mt-2 text-sm leading-6 text-text"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    )
+  }
+
+  return (
+    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-text">
+      {plainText || emptyMessage}
+    </p>
+  )
+}
+
 function CommentThread({ comment }: { comment: DiscussionComment }) {
   const postedAt = formatPostedAt(comment.created_at)
   const authorUrl = lobstersUserUrl(comment.commenting_user)
@@ -86,9 +111,11 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
           </Button>
         </div>
 
-        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-text">
-          {comment.comment_plain || 'No plain-text body available for this comment.'}
-        </p>
+        <RichDiscussionBody
+          html={comment.comment_html}
+          plainText={comment.comment_plain}
+          emptyMessage="No plain-text body available for this comment."
+        />
       </article>
 
       {comment.comments.length > 0 ? (
@@ -177,6 +204,8 @@ export function DiscussionDrawer({
     title: storyTitle,
     comment_count: commentCount,
     created_at: null,
+    description_html: null,
+    description_plain: '',
     comments_url: commentsUrl,
     comments: [],
   }
@@ -267,14 +296,28 @@ export function DiscussionDrawer({
                   Open on Lobsters
                 </Link>
               </div>
-            ) : renderedDiscussion.comments.length === 0 ? (
-              <p className="text-sm text-muted">No comments in this discussion yet.</p>
             ) : (
-              <ul className="space-y-4">
-                {renderedDiscussion.comments.map((comment) => (
-                  <CommentThread key={comment.short_id} comment={comment} />
-                ))}
-              </ul>
+              <div className="space-y-5">
+                {renderedDiscussion.description_html || renderedDiscussion.description_plain ? (
+                  <article className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+                    <RichDiscussionBody
+                      html={renderedDiscussion.description_html}
+                      plainText={renderedDiscussion.description_plain}
+                      emptyMessage=""
+                    />
+                  </article>
+                ) : null}
+
+                {renderedDiscussion.comments.length === 0 ? (
+                  <p className="text-sm text-muted">No comments in this discussion yet.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {renderedDiscussion.comments.map((comment) => (
+                      <CommentThread key={comment.short_id} comment={comment} />
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         </div>

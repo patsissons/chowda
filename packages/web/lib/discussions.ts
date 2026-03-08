@@ -1,4 +1,5 @@
 import { LOBSTERS_BASE_URL, joinLobstersUrl } from '@/lib/lobsters'
+import { sanitizeLobstersHtml } from '@/lib/rich-text'
 
 type LobstersComment = {
   short_id?: string
@@ -6,6 +7,7 @@ type LobstersComment = {
   depth?: number
   created_at?: string
   commenting_user?: string
+  comment?: string
   comment_plain?: string
   short_id_url?: string
   url?: string
@@ -17,6 +19,8 @@ type LobstersStory = {
   title?: string
   comment_count?: number
   created_at?: string
+  description?: string
+  description_plain?: string
   comments_url?: string
   comments?: LobstersComment[]
 }
@@ -27,6 +31,7 @@ export type DiscussionComment = {
   depth: number
   created_at: string | null
   commenting_user: string
+  comment_html: string | null
   comment_plain: string
   short_id_url: string
   url: string
@@ -38,6 +43,8 @@ export type DiscussionPayload = {
   title: string
   comment_count: number
   created_at: string | null
+  description_html: string | null
+  description_plain: string
   comments_url: string
   comments: DiscussionComment[]
 }
@@ -51,6 +58,7 @@ function normalizeNestedComment(comment: LobstersComment, fallbackDepth = 0): Di
     depth: typeof comment.depth === 'number' ? comment.depth : fallbackDepth,
     created_at: comment.created_at ?? null,
     commenting_user: comment.commenting_user ?? 'unknown',
+    comment_html: sanitizeLobstersHtml(comment.comment),
     comment_plain: comment.comment_plain ?? '',
     short_id_url: joinLobstersUrl(
       comment.short_id_url ?? `/c/${encodeURIComponent(comment.short_id ?? '')}`,
@@ -82,6 +90,7 @@ function nestFlatComments(comments: LobstersComment[]): DiscussionComment[] {
       depth: typeof comment.depth === 'number' ? comment.depth : 0,
       created_at: comment.created_at ?? null,
       commenting_user: comment.commenting_user ?? 'unknown',
+      comment_html: sanitizeLobstersHtml(comment.comment),
       comment_plain: comment.comment_plain ?? '',
       short_id_url: joinLobstersUrl(
         comment.short_id_url ?? `/c/${encodeURIComponent(comment.short_id ?? '')}`,
@@ -139,6 +148,8 @@ export async function fetchDiscussion(shortId: string): Promise<DiscussionPayloa
     title: story.title ?? 'Discussion',
     comment_count: story.comment_count ?? 0,
     created_at: story.created_at ?? null,
+    description_html: sanitizeLobstersHtml(story.description),
+    description_plain: story.description_plain ?? '',
     comments_url: story.comments_url ?? `${LOBSTERS_BASE_URL}/s/${encodeURIComponent(shortId)}`,
     comments: normalizeComments(story.comments),
   }

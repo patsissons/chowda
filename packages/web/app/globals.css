@@ -91,3 +91,70 @@ h3,
     transition: none !important;
   }
 }
+
+.discussion-rich-text {
+  overflow-wrap: anywhere;
+}
+
+.discussion-rich-text p + p,
+.discussion-rich-text p + ul,
+.discussion-rich-text p + ol,
+.discussion-rich-text ul + p,
+.discussion-rich-text ol + p,
+.discussion-rich-text ul + ul,
+.discussion-rich-text ol + ol,
+.discussion-rich-text blockquote + p,
+.discussion-rich-text pre + p {
+  margin-top: 0.75rem;
+}
+
+.discussion-rich-text ul,
+.discussion-rich-text ol {
+  margin-left: 1.25rem;
+}
+
+.discussion-rich-text ul {
+  list-style: disc;
+}
+
+.discussion-rich-text ol {
+  list-style: decimal;
+}
+
+.discussion-rich-text li + li {
+  margin-top: 0.375rem;
+}
+
+.discussion-rich-text a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.discussion-rich-text code {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  background: hsl(var(--accent-soft));
+  padding: 0.1rem 0.3rem;
+  font-size: 0.875em;
+}
+
+.discussion-rich-text pre {
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  background: hsl(var(--surface));
+  padding: 0.875rem 1rem;
+}
+
+.discussion-rich-text pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.discussion-rich-text blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 0.875rem;
+  color: hsl(var(--muted));
+}
