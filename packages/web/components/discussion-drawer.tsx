@@ -254,7 +254,14 @@ export function DiscussionDrawer({
           <SheetHeader className="shrink-0 pr-10">
             <div className="flex items-start gap-3">
               <SheetTitle className="min-w-0 flex-1 text-xl sm:text-2xl">
-                {renderedDiscussion.title}
+                <a
+                  href={storyPermalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline-offset-2 hover:underline"
+                >
+                  {renderedDiscussion.title}
+                </a>
               </SheetTitle>
               <Button
                 asChild
