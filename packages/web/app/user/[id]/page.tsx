@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { HomeChrome } from '@/components/home-chrome'
 import { PaginationControls } from '@/components/pagination-controls'
 import { StoryList } from '@/components/story-list'
+import { Button } from '@/components/ui/button'
 import { fetchDiscussion, type DiscussionPayload } from '@/lib/discussions'
 import { lobstersUserUrl } from '@/lib/lobsters'
 import { attachAuthorAvatars, fetchUserStories, type LobstersStory } from '@/lib/story-feed'
@@ -70,14 +71,19 @@ export default async function UserStoriesPage({ params, searchParams }: PageProp
               <p className="mt-1 text-sm text-muted">Most recent stories submitted by this user.</p>
             </div>
             {username ? (
-              <Link
-                href={lobstersUserUrl(username)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-accentSoft"
-              >
-                Open on Lobsters
-              </Link>
+              <Button asChild variant="ghost" size="sm" className="h-9 w-9 rounded-full p-0">
+                <Link
+                  href={lobstersUserUrl(username)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${username} on Lobsters`}
+                  title="Open on Lobsters"
+                >
+                  <span aria-hidden className="text-sm leading-none">
+                    🦞
+                  </span>
+                </Link>
+              </Button>
             ) : null}
           </div>
 

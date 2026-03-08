@@ -3,14 +3,7 @@ import Link from 'next/link'
 import { DiscussionDrawer } from '@/components/discussion-drawer'
 import { Button } from '@/components/ui/button'
 import type { DiscussionPayload } from '@/lib/discussions'
-import {
-  formatPostedAt,
-  lobstersTagUrl,
-  lobstersUserUrl,
-  tagRoutePath,
-  userRoutePath,
-  LOBSTERS_BASE_URL,
-} from '@/lib/lobsters'
+import { formatPostedAt, lobstersUserUrl, tagRoutePath, userRoutePath, LOBSTERS_BASE_URL } from '@/lib/lobsters'
 import type { LobstersStory } from '@/lib/story-feed'
 
 type StoryListProps = {
@@ -76,7 +69,10 @@ export function StoryList({ stories, initialDiscussion }: StoryListProps) {
 
               <div className="min-w-0 space-y-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Link href={authorRoute} className="shrink-0">
+                  <Link
+                    href={authorRoute}
+                    className="shrink-0 rounded-full transition hover:ring-1 hover:ring-accent hover:ring-offset-1 hover:ring-offset-surface"
+                  >
                     {story.avatar_url ? (
                       <img
                         src={story.avatar_url}
@@ -167,24 +163,13 @@ export function StoryList({ stories, initialDiscussion }: StoryListProps) {
                   {story.tags && story.tags.length > 0 ? (
                     <div className="flex min-w-0 flex-wrap justify-end gap-2">
                       {story.tags.map((tag) => (
-                        <div key={`${story.short_id}-${tag}`} className="flex items-center gap-1">
-                          <Link
-                            href={tagRoutePath(tag)}
-                            className="rounded-full border border-border bg-accentSoft px-1 py-[0.5px] text-[9px] font-medium uppercase tracking-wide text-muted transition hover:border-accent hover:text-text"
-                          >
-                            {tag}
-                          </Link>
-                          <a
-                            href={lobstersTagUrl(tag)}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Open ${tag} on Lobsters`}
-                            title="Open tag on Lobsters"
-                            className="text-[10px] leading-none text-muted transition hover:text-text"
-                          >
-                            🦞
-                          </a>
-                        </div>
+                        <Link
+                          key={`${story.short_id}-${tag}`}
+                          href={tagRoutePath(tag)}
+                          className="rounded-full border border-border bg-accentSoft px-1 py-[0.5px] text-[9px] font-medium uppercase tracking-wide text-muted transition hover:border-accent hover:text-text"
+                        >
+                          {tag}
+                        </Link>
                       ))}
                     </div>
                   ) : null}
