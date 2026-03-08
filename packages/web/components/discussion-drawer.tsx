@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { ExternalLink } from 'lucide-react'
 
 import {
   Sheet,
@@ -11,24 +12,77 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 import type { DiscussionComment, DiscussionPayload } from '@/lib/discussions'
+import { formatPostedAt, lobstersUserUrl } from '@/lib/lobsters'
 
 type DiscussionDrawerProps = {
   shortId: string
   storyTitle: string
+  storyPermalink: string
   commentCount: number
   commentsUrl: string
   initialDiscussion?: DiscussionPayload | null
 }
 
 function CommentThread({ comment }: { comment: DiscussionComment }) {
+  const postedAt = formatPostedAt(comment.created_at)
+  const authorUrl = lobstersUserUrl(comment.commenting_user)
+
   return (
     <li className="space-y-3">
       <article className="rounded-2xl border border-border bg-surface p-4 shadow-card">
-        <p className="text-xs text-muted">
-          {comment.commenting_user}
-          {comment.score !== null ? ` · ${comment.score} points` : ''}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+              <span>{comment.commenting_user}</span>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 rounded-full p-0 text-muted"
+              >
+                <a
+                  href={authorUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${comment.commenting_user} on Lobsters`}
+                  title="Open author on Lobsters"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                </a>
+              </Button>
+              {comment.score !== null ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{comment.score} points</span>
+                </>
+              ) : null}
+              {postedAt ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <time dateTime={postedAt.iso} title={postedAt.absolute}>
+                    {postedAt.absolute}
+                  </time>
+                  <span>({postedAt.relative})</span>
+                </>
+              ) : null}
+            </p>
+          </div>
+
+          <Button asChild variant="ghost" size="sm" className="h-8 w-8 shrink-0 rounded-full p-0">
+            <a
+              href={comment.url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open comment on Lobsters"
+              title="Open comment on Lobsters"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+            </a>
+          </Button>
+        </div>
+
         <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-text">
           {comment.comment_plain || 'No plain-text body available for this comment.'}
         </p>
@@ -48,6 +102,7 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
 export function DiscussionDrawer({
   shortId,
   storyTitle,
+  storyPermalink,
   commentCount,
   commentsUrl,
   initialDiscussion = null,
@@ -118,9 +173,12 @@ export function DiscussionDrawer({
     short_id: shortId,
     title: storyTitle,
     comment_count: commentCount,
+    created_at: null,
     comments_url: commentsUrl,
     comments: [],
   }
+  const storyPostedAt = formatPostedAt(renderedDiscussion.created_at)
+  const isDiscussionDisabled = commentCount === 0
 
   function updateDiscussionParam(nextOpen: boolean) {
     const params = new URLSearchParams(searchParams.toString())
@@ -137,6 +195,10 @@ export function DiscussionDrawer({
   }
 
   function handleOpenChange(nextOpen: boolean) {
+    if (isDiscussionDisabled && nextOpen) {
+      return
+    }
+
     setOpen(nextOpen)
     updateDiscussionParam(nextOpen)
   }
@@ -146,17 +208,42 @@ export function DiscussionDrawer({
       <button
         type="button"
         onClick={() => handleOpenChange(true)}
-        className="w-fit text-left text-xs text-accent underline-offset-2 hover:underline"
+        disabled={isDiscussionDisabled}
+        className="w-fit text-left text-xs text-accent underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline"
       >
         View discussion
       </button>
 
-      <SheetContent side="bottom" className="px-4 pb-6 pt-10 sm:px-6">
+      <SheetContent
+        side="bottom"
+        className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-10 sm:px-6"
+      >
         <div className="mx-auto w-full max-w-3xl">
           <SheetHeader className="pr-10">
-            <SheetTitle className="text-xl sm:text-2xl">{renderedDiscussion.title}</SheetTitle>
+            <div className="flex items-start gap-3">
+              <SheetTitle className="min-w-0 flex-1 text-xl sm:text-2xl">
+                {renderedDiscussion.title}
+              </SheetTitle>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 shrink-0 rounded-full p-0"
+              >
+                <a
+                  href={storyPermalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${renderedDiscussion.title} on Lobsters`}
+                  title="Open story on Lobsters"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                </a>
+              </Button>
+            </div>
             <SheetDescription>
               {renderedDiscussion.comment_count} comments
+              {storyPostedAt ? ` · ${storyPostedAt.absolute} (${storyPostedAt.relative})` : ''}
             </SheetDescription>
           </SheetHeader>
 

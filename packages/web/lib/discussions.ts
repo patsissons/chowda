@@ -1,11 +1,14 @@
-const LOBSTERS_BASE_URL = 'https://lobste.rs'
+import { LOBSTERS_BASE_URL, joinLobstersUrl } from '@/lib/lobsters'
 
 type LobstersComment = {
   short_id?: string
   score?: number
   depth?: number
+  created_at?: string
   commenting_user?: string
   comment_plain?: string
+  short_id_url?: string
+  url?: string
   comments?: LobstersComment[]
 }
 
@@ -13,6 +16,7 @@ type LobstersStory = {
   short_id?: string
   title?: string
   comment_count?: number
+  created_at?: string
   comments_url?: string
   comments?: LobstersComment[]
 }
@@ -21,8 +25,11 @@ export type DiscussionComment = {
   short_id: string
   score: number | null
   depth: number
+  created_at: string | null
   commenting_user: string
   comment_plain: string
+  short_id_url: string
+  url: string
   comments: DiscussionComment[]
 }
 
@@ -30,17 +37,27 @@ export type DiscussionPayload = {
   short_id: string
   title: string
   comment_count: number
+  created_at: string | null
   comments_url: string
   comments: DiscussionComment[]
 }
 
 function normalizeNestedComment(comment: LobstersComment, fallbackDepth = 0): DiscussionComment {
+  const commentUrl = comment.url ?? comment.short_id_url ?? ''
+
   return {
     short_id: comment.short_id ?? `${comment.commenting_user ?? 'comment'}-${fallbackDepth}`,
     score: typeof comment.score === 'number' ? comment.score : null,
     depth: typeof comment.depth === 'number' ? comment.depth : fallbackDepth,
+    created_at: comment.created_at ?? null,
     commenting_user: comment.commenting_user ?? 'unknown',
     comment_plain: comment.comment_plain ?? '',
+    short_id_url: joinLobstersUrl(
+      comment.short_id_url ?? `/c/${encodeURIComponent(comment.short_id ?? '')}`,
+    ),
+    url: commentUrl
+      ? joinLobstersUrl(commentUrl)
+      : joinLobstersUrl(`/c/${encodeURIComponent(comment.short_id ?? '')}`),
     comments: Array.isArray(comment.comments)
       ? comment.comments.map((child) =>
           normalizeNestedComment(
@@ -57,12 +74,21 @@ function nestFlatComments(comments: LobstersComment[]): DiscussionComment[] {
   const stack: DiscussionComment[] = []
 
   for (const comment of comments) {
+    const commentUrl = comment.url ?? comment.short_id_url ?? ''
+
     const normalized: DiscussionComment = {
       short_id: comment.short_id ?? `comment-${roots.length + stack.length}`,
       score: typeof comment.score === 'number' ? comment.score : null,
       depth: typeof comment.depth === 'number' ? comment.depth : 0,
+      created_at: comment.created_at ?? null,
       commenting_user: comment.commenting_user ?? 'unknown',
       comment_plain: comment.comment_plain ?? '',
+      short_id_url: joinLobstersUrl(
+        comment.short_id_url ?? `/c/${encodeURIComponent(comment.short_id ?? '')}`,
+      ),
+      url: commentUrl
+        ? joinLobstersUrl(commentUrl)
+        : joinLobstersUrl(`/c/${encodeURIComponent(comment.short_id ?? '')}`),
       comments: [],
     }
 
@@ -88,9 +114,13 @@ function normalizeComments(comments: LobstersComment[] | undefined): DiscussionC
     return []
   }
 
-  const hasNestedChildren = comments.some((comment) => Array.isArray(comment.comments) && comment.comments.length > 0)
+  const hasNestedChildren = comments.some(
+    (comment) => Array.isArray(comment.comments) && comment.comments.length > 0,
+  )
 
-  return hasNestedChildren ? comments.map((comment) => normalizeNestedComment(comment)) : nestFlatComments(comments)
+  return hasNestedChildren
+    ? comments.map((comment) => normalizeNestedComment(comment))
+    : nestFlatComments(comments)
 }
 
 export async function fetchDiscussion(shortId: string): Promise<DiscussionPayload> {
@@ -108,6 +138,7 @@ export async function fetchDiscussion(shortId: string): Promise<DiscussionPayloa
     short_id: story.short_id ?? shortId,
     title: story.title ?? 'Discussion',
     comment_count: story.comment_count ?? 0,
+    created_at: story.created_at ?? null,
     comments_url: story.comments_url ?? `${LOBSTERS_BASE_URL}/s/${encodeURIComponent(shortId)}`,
     comments: normalizeComments(story.comments),
   }

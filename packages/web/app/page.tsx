@@ -1,14 +1,16 @@
 import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 
 import { DiscussionDrawer } from '@/components/discussion-drawer'
 import { HomeChrome } from '@/components/home-chrome'
 import { PaginationControls } from '@/components/pagination-controls'
+import { Button } from '@/components/ui/button'
 import { fetchDiscussion, type DiscussionPayload } from '@/lib/discussions'
+import { formatPostedAt, joinLobstersUrl, LOBSTERS_BASE_URL, lobstersUserUrl } from '@/lib/lobsters'
 
 const DEFAULT_TAB = 'hottest'
 const APP_PAGE_SIZE = 10
 const SOURCE_PAGE_SIZE = 25
-const LOBSTERS_BASE_URL = 'https://lobste.rs'
 
 type TabValue = 'hottest' | 'newest' | 'active' | 'search'
 
@@ -25,8 +27,12 @@ type LobstersStory = {
   url: string
   score: number
   comment_count: number
+  created_at?: string
   comments_url: string
+  short_id_url?: string
   submitter_user: string
+  tags?: string[]
+  avatar_url?: string | null
 }
 
 type PagedStories = {
@@ -72,6 +78,15 @@ function domainFromUrl(url: string): string | null {
   }
 }
 
+function domainRootUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    return `${parsed.protocol}//${parsed.hostname}`
+  } catch {
+    return null
+  }
+}
+
 function htmlToText(value: string): string {
   return value
     .replace(/&quot;/g, '"')
@@ -81,13 +96,6 @@ function htmlToText(value: string): string {
     .replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ')
     .trim()
-}
-
-function joinUrl(baseUrl: string, pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl
-  }
-  return `${baseUrl}${pathOrUrl.startsWith('/') ? '' : '/'}${pathOrUrl}`
 }
 
 function parseSearchHtml(html: string): LobstersStory[] {
@@ -102,12 +110,17 @@ function parseSearchHtml(html: string): LobstersStory[] {
 
     const item = block.slice(0, end)
     const shortIdMatch = item.match(/data-shortid="([^"]+)"/)
-    const linkMatch = item.match(/<span[^>]*class="link[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/)
+    const linkMatch = item.match(
+      /<span[^>]*class="link[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/,
+    )
     const submitterMatch = item.match(/<a class="u-author[^>]*>([^<]+)<\/a>/)
+    const timeMatch = item.match(/<time[^>]*datetime="([^"]+)"/)
     const commentsMatch = item.match(
       /<span class="comments_label">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?(\d+)\s+comments?/,
     )
     const scoreMatch = item.match(/<a class="upvoter"[^>]*>(\d+|~)<\/a>/)
+    const tagMatches = [...item.matchAll(/<a class="tag[^>]*>([^<]+)<\/a>/g)]
+    const avatarMatch = item.match(/<img[^>]*class="avatar"[^>]*src="([^"]+)"/)
 
     if (!shortIdMatch || !linkMatch || !submitterMatch) {
       continue
@@ -116,11 +129,15 @@ function parseSearchHtml(html: string): LobstersStory[] {
     results.push({
       short_id: shortIdMatch[1],
       title: htmlToText(linkMatch[2]),
-      url: joinUrl(LOBSTERS_BASE_URL, htmlToText(linkMatch[1])),
+      url: joinLobstersUrl(htmlToText(linkMatch[1])),
       score: scoreMatch && scoreMatch[1] !== '~' ? Number(scoreMatch[1]) : 0,
+      created_at: timeMatch ? timeMatch[1] : undefined,
       submitter_user: htmlToText(submitterMatch[1]),
+      tags: tagMatches.map((match) => htmlToText(match[1])),
+      avatar_url: avatarMatch ? joinLobstersUrl(htmlToText(avatarMatch[1])) : null,
       comment_count: commentsMatch ? Number(commentsMatch[2]) : 0,
-      comments_url: commentsMatch ? joinUrl(LOBSTERS_BASE_URL, htmlToText(commentsMatch[1])) : '',
+      comments_url: commentsMatch ? joinLobstersUrl(htmlToText(commentsMatch[1])) : '',
+      short_id_url: `${LOBSTERS_BASE_URL}/s/${shortIdMatch[1]}`,
     })
   }
 
@@ -137,7 +154,10 @@ function feedUrlFor(tab: Exclude<TabValue, 'search'>, page: number): string {
   return `${LOBSTERS_BASE_URL}/page/${page}.json`
 }
 
-async function fetchFeedStories(tab: Exclude<TabValue, 'search'>, page: number): Promise<LobstersStory[]> {
+async function fetchFeedStories(
+  tab: Exclude<TabValue, 'search'>,
+  page: number,
+): Promise<LobstersStory[]> {
   const response = await fetch(feedUrlFor(tab, page), {
     next: { revalidate: 60 },
   })
@@ -168,14 +188,53 @@ async function fetchSearchStories(query: string, page: number): Promise<Lobsters
   return parseSearchHtml(await response.text())
 }
 
-async function fetchStoriesForAppPage(tab: TabValue, page: number, searchQuery: string | null): Promise<PagedStories> {
+async function fetchUserAvatarUrl(username: string): Promise<string | null> {
+  const response = await fetch(`${LOBSTERS_BASE_URL}/~${encodeURIComponent(username)}.json`, {
+    next: { revalidate: 3600 },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = (await response.json()) as { avatar_url?: string }
+  return payload.avatar_url ? joinLobstersUrl(payload.avatar_url) : null
+}
+
+async function attachAuthorAvatars(stories: LobstersStory[]): Promise<LobstersStory[]> {
+  const usernames = [...new Set(stories.map((story) => story.submitter_user).filter(Boolean))]
+
+  const avatarEntries = await Promise.all(
+    usernames.map(async (username) => {
+      try {
+        return [username, await fetchUserAvatarUrl(username)] as const
+      } catch {
+        return [username, null] as const
+      }
+    }),
+  )
+
+  const avatarMap = new Map(avatarEntries)
+
+  return stories.map((story) => ({
+    ...story,
+    avatar_url: story.avatar_url ?? avatarMap.get(story.submitter_user) ?? null,
+  }))
+}
+
+async function fetchStoriesForAppPage(
+  tab: TabValue,
+  page: number,
+  searchQuery: string | null,
+): Promise<PagedStories> {
   const startIndex = (page - 1) * APP_PAGE_SIZE
   const sourcePage = Math.floor(startIndex / SOURCE_PAGE_SIZE) + 1
   const offsetWithinSource = startIndex % SOURCE_PAGE_SIZE
 
-  const loadSourcePage = tab === 'search'
-    ? async (sourcePageNumber: number) => fetchSearchStories(searchQuery ?? '', sourcePageNumber)
-    : async (sourcePageNumber: number) => fetchFeedStories(tab, sourcePageNumber)
+  const loadSourcePage =
+    tab === 'search'
+      ? async (sourcePageNumber: number) => fetchSearchStories(searchQuery ?? '', sourcePageNumber)
+      : async (sourcePageNumber: number) => fetchFeedStories(tab, sourcePageNumber)
 
   const firstSourcePage = await loadSourcePage(sourcePage)
   let combinedStories = firstSourcePage.slice(offsetWithinSource)
@@ -205,13 +264,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   try {
     const pagedStories = await fetchStoriesForAppPage(activeTab, currentPage, searchQuery)
-    stories = pagedStories.stories
+    stories = await attachAuthorAvatars(pagedStories.stories)
     hasNextPage = pagedStories.hasNextPage
   } catch {
     feedError = 'Unable to load the selected feed right now. Please try again shortly.'
   }
 
-  if (!feedError && selectedDiscussionId && stories.some((story) => story.short_id === selectedDiscussionId)) {
+  if (
+    !feedError &&
+    selectedDiscussionId &&
+    stories.some((story) => story.short_id === selectedDiscussionId)
+  ) {
     try {
       initialDiscussion = await fetchDiscussion(selectedDiscussionId)
     } catch {
@@ -226,149 +289,258 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <main className="mx-auto w-full max-w-5xl px-4 pb-14 pt-5 sm:px-6 sm:pt-8">
       <HomeChrome>
         <section className="rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-6">
-        <form action="/" method="get" className="mb-4 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="tab" value="search" />
-          <input type="hidden" name="page" value="1" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={searchQuery ?? ''}
-            placeholder="Search Lobsters stories"
-            enterKeyHint="search"
-            className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            aria-label="Search Lobsters stories"
-            required
-          />
-          <button
-            type="submit"
-            className="h-10 rounded-md border border-border px-4 text-sm font-medium transition hover:bg-accentSoft"
-          >
-            Search
-          </button>
-        </form>
+          <form action="/" method="get" className="mb-4 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="tab" value="search" />
+            <input type="hidden" name="page" value="1" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={searchQuery ?? ''}
+              placeholder="Search Lobsters stories"
+              enterKeyHint="search"
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+              aria-label="Search Lobsters stories"
+              required
+            />
+            <button
+              type="submit"
+              className="h-10 rounded-md border border-border px-4 text-sm font-medium transition hover:bg-accentSoft"
+            >
+              Search
+            </button>
+          </form>
 
-        <div className="mb-4 border-b border-border">
-          <div className="flex items-center gap-2" role="tablist" aria-label="Feed tabs">
-            <Link
-              href={queryFor('hottest', 1)}
-              role="tab"
-              aria-selected={activeTab === 'hottest'}
-              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
-                activeTab === 'hottest'
-                  ? 'border-border border-b-surface bg-surface text-text'
-                  : 'border-transparent text-muted hover:text-text'
-              }`}
-            >
-              🔥 Hottest
-            </Link>
-            <Link
-              href={queryFor('newest', 1)}
-              role="tab"
-              aria-selected={activeTab === 'newest'}
-              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
-                activeTab === 'newest'
-                  ? 'border-border border-b-surface bg-surface text-text'
-                  : 'border-transparent text-muted hover:text-text'
-              }`}
-            >
-              🆕 Newest
-            </Link>
-            <Link
-              href={queryFor('active', 1)}
-              role="tab"
-              aria-selected={activeTab === 'active'}
-              className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
-                activeTab === 'active'
-                  ? 'border-border border-b-surface bg-surface text-text'
-                  : 'border-transparent text-muted hover:text-text'
-              }`}
-            >
-              ⚡ Active
-            </Link>
-            {hasSearchTab ? (
+          <div className="mb-4 border-b border-border">
+            <div className="flex items-center gap-2" role="tablist" aria-label="Feed tabs">
               <Link
-                href={queryFor('search', 1, searchQuery)}
+                href={queryFor('hottest', 1)}
                 role="tab"
-                aria-selected={activeTab === 'search'}
+                aria-selected={activeTab === 'hottest'}
                 className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
-                  activeTab === 'search'
+                  activeTab === 'hottest'
                     ? 'border-border border-b-surface bg-surface text-text'
                     : 'border-transparent text-muted hover:text-text'
                 }`}
               >
-                🔍 Search
+                🔥 Hottest
               </Link>
-            ) : null}
+              <Link
+                href={queryFor('newest', 1)}
+                role="tab"
+                aria-selected={activeTab === 'newest'}
+                className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                  activeTab === 'newest'
+                    ? 'border-border border-b-surface bg-surface text-text'
+                    : 'border-transparent text-muted hover:text-text'
+                }`}
+              >
+                🆕 Newest
+              </Link>
+              <Link
+                href={queryFor('active', 1)}
+                role="tab"
+                aria-selected={activeTab === 'active'}
+                className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                  activeTab === 'active'
+                    ? 'border-border border-b-surface bg-surface text-text'
+                    : 'border-transparent text-muted hover:text-text'
+                }`}
+              >
+                ⚡ Active
+              </Link>
+              {hasSearchTab ? (
+                <Link
+                  href={queryFor('search', 1, searchQuery)}
+                  role="tab"
+                  aria-selected={activeTab === 'search'}
+                  className={`-mb-px inline-flex rounded-t-md border px-3 py-2 text-sm font-medium ${
+                    activeTab === 'search'
+                      ? 'border-border border-b-surface bg-surface text-text'
+                      : 'border-transparent text-muted hover:text-text'
+                  }`}
+                >
+                  🔍 Search
+                </Link>
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        <PaginationControls
-          tab={activeTab}
-          currentPage={currentPage}
-          isFirstPage={isFirstPage}
-          hasNextPage={hasNextPage}
-          searchQuery={searchQuery ?? undefined}
-          className="mb-5 border-b border-border pb-4"
-        />
+          <PaginationControls
+            tab={activeTab}
+            currentPage={currentPage}
+            isFirstPage={isFirstPage}
+            hasNextPage={hasNextPage}
+            searchQuery={searchQuery ?? undefined}
+            className="mb-5 border-b border-border pb-4"
+          />
 
-        {activeTab === 'search' && searchQuery ? (
-          <p className="mb-4 text-sm text-muted">
-            Results for <span className="font-medium text-text">"{searchQuery}"</span>
-          </p>
-        ) : null}
+          {activeTab === 'search' && searchQuery ? (
+            <p className="mb-4 text-sm text-muted">
+              Results for <span className="font-medium text-text">"{searchQuery}"</span>
+            </p>
+          ) : null}
 
-        {feedError ? (
-          <p className="rounded-lg border border-border bg-accentSoft p-3 text-sm text-text">
-            {feedError}
-          </p>
-        ) : stories.length === 0 ? (
-          <p className="text-sm text-muted">No stories found for this page.</p>
-        ) : (
-          <ol className="divide-y divide-border">
-            {stories.map((story) => {
-              const domain = domainFromUrl(story.url)
-              return (
-                <li key={story.short_id} className="py-4 first:pt-1">
-                  <div className="flex min-w-0 flex-col gap-2">
-                    <a
-                      href={story.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="min-w-0 break-words text-base font-medium text-text underline-offset-2 hover:underline"
-                    >
-                      {story.title}
-                    </a>
+          {feedError ? (
+            <p className="rounded-lg border border-border bg-accentSoft p-3 text-sm text-text">
+              {feedError}
+            </p>
+          ) : stories.length === 0 ? (
+            <p className="text-sm text-muted">No stories found for this page.</p>
+          ) : (
+            <ol className="divide-y divide-border">
+              {stories.map((story) => {
+                const domain = domainFromUrl(story.url)
+                const domainUrl = domainRootUrl(story.url)
+                const postedAt = formatPostedAt(story.created_at)
+                const storyPermalink =
+                  story.comments_url ||
+                  story.short_id_url ||
+                  `${LOBSTERS_BASE_URL}/s/${story.short_id}`
+                const authorProfileUrl = lobstersUserUrl(story.submitter_user)
+                return (
+                  <li key={story.short_id} className="py-4 first:pt-1">
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <div className="flex items-start gap-2">
+                        <a
+                          href={story.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-w-0 flex-1 break-words text-base font-medium text-text underline-offset-2 hover:underline"
+                        >
+                          {story.title}
+                        </a>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 shrink-0 rounded-full p-0"
+                        >
+                          <a
+                            href={storyPermalink}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Open ${story.title} on Lobsters`}
+                            title="Open story on Lobsters"
+                          >
+                            <ExternalLink className="h-4 w-4" aria-hidden />
+                          </a>
+                        </Button>
+                      </div>
 
-                    <p className="min-w-0 break-words text-xs text-muted">
-                      {story.score} points · {story.comment_count} comments · by{' '}
-                      {story.submitter_user}
-                      {domain ? ` · ${domain}` : ''}
-                    </p>
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {story.avatar_url ? (
+                            <img
+                              src={story.avatar_url}
+                              alt={`${story.submitter_user} avatar`}
+                              className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-accentSoft text-[9px] font-semibold text-text">
+                              {story.submitter_user.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
 
-                    {story.comments_url ? (
-                      <DiscussionDrawer
-                        shortId={story.short_id}
-                        storyTitle={story.title}
-                        commentCount={story.comment_count}
-                        commentsUrl={story.comments_url}
-                        initialDiscussion={initialDiscussion?.short_id === story.short_id ? initialDiscussion : null}
-                      />
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-        )}
+                          <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                            <span>{story.score} points</span>
+                            <span aria-hidden>·</span>
+                            <span>{story.comment_count} comments</span>
+                            <span aria-hidden>·</span>
+                            <span>by {story.submitter_user}</span>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 rounded-full p-0 text-muted"
+                            >
+                              <a
+                                href={authorProfileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`Open ${story.submitter_user} on Lobsters`}
+                                title="Open author on Lobsters"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                              </a>
+                            </Button>
+                            {postedAt ? (
+                              <>
+                                <span aria-hidden>·</span>
+                                <time dateTime={postedAt.iso} title={postedAt.absolute}>
+                                  {postedAt.absolute}
+                                </time>
+                                <span>({postedAt.relative})</span>
+                              </>
+                            ) : null}
+                            {domain ? (
+                              <>
+                                <span aria-hidden>·</span>
+                                {domainUrl ? (
+                                  <a
+                                    href={domainUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="break-all underline-offset-2 hover:underline"
+                                  >
+                                    {domain}
+                                  </a>
+                                ) : (
+                                  <span className="break-all">{domain}</span>
+                                )}
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
 
-        <PaginationControls
-          tab={activeTab}
-          currentPage={currentPage}
-          isFirstPage={isFirstPage}
-          hasNextPage={hasNextPage}
-          searchQuery={searchQuery ?? undefined}
-          className="mt-5 border-t border-border pt-4"
-        />
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="shrink-0">
+                            {story.comments_url ? (
+                              <DiscussionDrawer
+                                shortId={story.short_id}
+                                storyTitle={story.title}
+                                storyPermalink={storyPermalink}
+                                commentCount={story.comment_count}
+                                commentsUrl={story.comments_url}
+                                initialDiscussion={
+                                  initialDiscussion?.short_id === story.short_id
+                                    ? initialDiscussion
+                                    : null
+                                }
+                              />
+                            ) : null}
+                          </div>
+
+                          {story.tags && story.tags.length > 0 ? (
+                            <div className="flex min-w-0 flex-wrap justify-end gap-2">
+                              {story.tags.map((tag) => (
+                                <span
+                                  key={`${story.short_id}-${tag}`}
+                                  className="rounded-full border border-border bg-accentSoft px-1 py-[0.5px] text-[9px] font-medium uppercase tracking-wide text-muted"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+
+          <PaginationControls
+            tab={activeTab}
+            currentPage={currentPage}
+            isFirstPage={isFirstPage}
+            hasNextPage={hasNextPage}
+            searchQuery={searchQuery ?? undefined}
+            className="mt-5 border-t border-border pt-4"
+          />
         </section>
       </HomeChrome>
     </main>
