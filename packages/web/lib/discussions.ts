@@ -21,6 +21,7 @@ type LobstersStory = {
   created_at?: string
   description?: string
   description_plain?: string
+  tags?: string[]
   comments_url?: string
   comments?: LobstersComment[]
 }
@@ -45,6 +46,7 @@ export type DiscussionPayload = {
   created_at: string | null
   description_html: string | null
   description_plain: string
+  tags: string[]
   comments_url: string
   comments: DiscussionComment[]
 }
@@ -150,6 +152,7 @@ export async function fetchDiscussion(shortId: string): Promise<DiscussionPayloa
     created_at: story.created_at ?? null,
     description_html: sanitizeLobstersHtml(story.description),
     description_plain: story.description_plain ?? '',
+    tags: Array.isArray(story.tags) ? story.tags : [],
     comments_url: story.comments_url ?? `${LOBSTERS_BASE_URL}/s/${encodeURIComponent(shortId)}`,
     comments: normalizeComments(story.comments),
   }

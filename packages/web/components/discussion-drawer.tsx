@@ -13,13 +13,14 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { DiscussionComment, DiscussionPayload } from '@/lib/discussions'
-import { formatPostedAt, lobstersUserUrl } from '@/lib/lobsters'
+import { formatPostedAt, lobstersUserUrl, tagRoutePath, userRoutePath } from '@/lib/lobsters'
 
 type DiscussionDrawerProps = {
   shortId: string
   storyTitle: string
   storyUrl: string
   storyPermalink: string
+  storyTags: string[]
   commentCount: number
   commentsUrl: string
   initialDiscussion?: DiscussionPayload | null
@@ -53,6 +54,7 @@ function RichDiscussionBody({
 function CommentThread({ comment }: { comment: DiscussionComment }) {
   const postedAt = formatPostedAt(comment.created_at)
   const authorUrl = lobstersUserUrl(comment.commenting_user)
+  const authorRoute = userRoutePath(comment.commenting_user)
 
   return (
     <li className="space-y-3">
@@ -60,7 +62,9 @@ function CommentThread({ comment }: { comment: DiscussionComment }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-              <span>{comment.commenting_user}</span>
+              <Link href={authorRoute} className="font-medium text-text underline-offset-2 hover:underline">
+                {comment.commenting_user}
+              </Link>
               <Button
                 asChild
                 variant="ghost"
@@ -135,6 +139,7 @@ export function DiscussionDrawer({
   storyTitle,
   storyUrl,
   storyPermalink,
+  storyTags,
   commentCount,
   commentsUrl,
   initialDiscussion = null,
@@ -208,6 +213,7 @@ export function DiscussionDrawer({
     created_at: null,
     description_html: null,
     description_plain: '',
+    tags: storyTags,
     comments_url: commentsUrl,
     comments: [],
   }
@@ -288,6 +294,19 @@ export function DiscussionDrawer({
               {renderedDiscussion.comment_count} comments
               {storyPostedAt ? ` · ${storyPostedAt.absolute} (${storyPostedAt.relative})` : ''}
             </SheetDescription>
+            {renderedDiscussion.tags.length > 0 ? (
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {renderedDiscussion.tags.map((tag) => (
+                  <Link
+                    key={`${renderedDiscussion.short_id}-${tag}`}
+                    href={tagRoutePath(tag)}
+                    className="rounded-full border border-border bg-accentSoft px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted transition hover:border-accent hover:text-text"
+                  >
+                    {tag}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
           </SheetHeader>
 
           <div className="mt-6 min-h-0 flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] pr-1">

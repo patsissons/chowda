@@ -152,6 +152,7 @@ export function StoryList({ stories, initialDiscussion }: StoryListProps) {
                         storyTitle={story.title}
                         storyUrl={story.url}
                         storyPermalink={storyPermalink}
+                        storyTags={story.tags ?? []}
                         commentCount={story.comment_count}
                         commentsUrl={story.comments_url}
                         initialDiscussion={
